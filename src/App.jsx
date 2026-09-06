@@ -107,22 +107,62 @@ export default function App(){
   }
 
   async function startScanner(mode='find'){
-    setScanMode(mode);setScanner(true)
-    setTimeout(async()=>{
-      try{
-        const reader=new BrowserMultiFormatReader()
-        scannerControls.current = await reader.decodeFromConstraints({
-  video:{
-    facingMode:{ideal:'environment'},
-    width:{ideal:1920},
-    height:{ideal:1080}
-  }
-}}, videoRef.current, (result)=>{
-          if(result){ scannerControls.current?.stop(); setScanner(false); handleBarcode(result.getText(),mode) }
-        })
-      }catch(e){setScanner(false);flash('Kamera açılamadı. Kamera iznini kontrol et.')}
-    },100)
-  }
+  setScanMode(mode)
+  setScanner(true)
+
+  setTimeout(async()=>{
+    try{
+      const reader=new BrowserMultiFormatReader()
+
+      scannerControls.current=await reader.decodeFromConstraints(
+        {
+          video:{
+            facingMode:{ideal:'environment'},
+            width:{ideal:1920},
+            height:{ideal:1080}
+          }
+        },
+        videoRef.current,
+        (result)=>{
+          if(result){
+            scannerControls.current?.stop()
+            setScanner(false)
+            handleBarcode(result.getText(),mode)
+          }
+        }
+      )
+
+      // iPhone destekliyorsa sürekli autofocus + hafif zoom
+      const stream=videoRef.current?.srcObject
+      const track=stream?.getVideoTracks?.()[0]
+
+      if(track){
+        const caps=track.getCapabilities?.() || {}
+        const advanced={}
+
+        if(caps.focusMode?.includes?.('continuous')){
+          advanced.focusMode='continuous'
+        }
+
+        if(caps.zoom){
+          const min=caps.zoom.min ?? 1
+          const max=caps.zoom.max ?? 1
+          advanced.zoom=Math.min(max,Math.max(min,1.5))
+        }
+
+        if(Object.keys(advanced).length){
+          try{
+            await track.applyConstraints({advanced:[advanced]})
+          }catch{}
+        }
+      }
+
+    }catch(e){
+      setScanner(false)
+      flash('Kamera açılamadı. Kamera iznini kontrol et.')
+    }
+  },100)
+}
   function handleBarcode(code,mode){
     if(mode==='new'){openNew(code);return}
     const p=products.find(x=>x.barcode===code)
