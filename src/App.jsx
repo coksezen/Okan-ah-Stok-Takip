@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Barcode, Bell, Boxes, CalendarDays, LogOut, Minus, Plus, Search, Settings, Trash2, X } from 'lucide-react'
+import { Barcode, Bell, Boxes, CalendarDays, ClipboardList, LogOut, Minus, Plus, Search, Settings, Trash2, X } from 'lucide-react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase, configured } from './supabase'
 import { enableNotifications } from './notifications'
@@ -228,7 +228,7 @@ export default function App(){
         <div className="card"><h3>Hesap</h3><p>{session.user.email}</p><button className="secondary" onClick={signOut}>Çıkış yap</button></div>
       </>}
     </main>
-    <nav>{[['home',Boxes,'Ana Sayfa'],['products',Search,'Ürünler'],['expiry',CalendarDays,'SKT'],['settings',Settings,'Ayarlar']].map(([k,I,t])=><button key={k} className={tab===k?'active':''} onClick={()=>setTab(k)}><I size={21}/><span>{t}</span></button>)}</nav>
+    <nav>{[['home',Boxes,'Ana Sayfa'],['products',Search,'Ürünler'],['needs',ClipboardList,'İhtiyaçlar'],['expiry',CalendarDays,'SKT'],['settings',Settings,'Ayarlar']].map(([k,I,t])=><button key={k} className={tab===k?'active':''} onClick={()=>setTab(k)}><I size={21}/><span>{t}</span></button>)}</nav>
     {message&&<div className="toast">{message}</div>}
     {scanner&&<div className="scanner"><button className="close" onClick={()=>{scannerControls.current?.stop();setScanner(false)}}><X/></button><video ref={videoRef}/><div className="frame"></div><p>Barkodu çerçevenin içine getir</p></div>}
     {modal&&<Modal close={()=>setModal(null)}>
