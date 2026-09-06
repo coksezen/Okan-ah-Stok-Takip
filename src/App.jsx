@@ -199,6 +199,41 @@ export default function App(){
         <div className="sectionTitle"><h2>Yaklaşan tarihler</h2><button className="link" onClick={()=>setTab('expiry')}>Tümünü gör</button></div>
         <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
       </>}
+      {tab==='needs' && <>
+  <div className="sectionTitle">
+    <h1>İhtiyaçlar</h1>
+  </div>
+
+  <div className="list">
+    <button className="productRow">
+      <div>
+        <b>Veteriner Fakültesi</b>
+        <small>Eksik listesini görüntüle</small>
+      </div>
+    </button>
+
+    <button className="productRow">
+      <div>
+        <b>İktisat Fakültesi</b>
+        <small>Eksik listesini görüntüle</small>
+      </div>
+    </button>
+
+    <button className="productRow">
+      <div>
+        <b>Suna UZAL</b>
+        <small>Eksik listesini görüntüle</small>
+      </div>
+    </button>
+
+    <button className="productRow">
+      <div>
+        <b>USO</b>
+        <small>Eksik listesini görüntüle</small>
+      </div>
+    </button>
+  </div>
+</>}
       {tab==='products' && <>
         <div className="sectionTitle"><h1>Ürünler</h1><button onClick={()=>openNew()}><Plus size={18}/> Ürün ekle</button></div>
         <div className="search"><Search size={18}/><input placeholder="Ürün veya barkod ara" value={query} onChange={e=>setQuery(e.target.value)}/><button className="scanmini" onClick={()=>startScanner('find')}><Barcode size={20}/></button></div>
