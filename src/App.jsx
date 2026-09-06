@@ -657,29 +657,24 @@ function flash(t){
           </div>
 
           <div>
-            <button
-              type="button"
-              className="secondary"
-              onClick={()=>{
-                const value=prompt(
-                  'Yeni yetki yaz:\nadmin\nveteriner\niktisat\nsuna_uzal\nuso'
-                )
+           <select
+  value={u.role==='admin' ? 'admin' : (u.branch || '')}
+  onChange={e=>{
+    const value=e.target.value
 
-                if(!value) return
-
-                if(value==='admin'){
-                  updateAllowedUser(u.email,'admin',null)
-                }else if(
-                  ['veteriner','iktisat','suna_uzal','uso'].includes(value)
-                ){
-                  updateAllowedUser(u.email,'branch',value)
-                }else{
-                  flash('Geçersiz yetki.')
-                }
-              }}
-            >
-              Yetki Değiştir
-            </button>
+    if(value==='admin'){
+      updateAllowedUser(u.email,'admin',null)
+    }else{
+      updateAllowedUser(u.email,'branch',value)
+    }
+  }}
+>
+  <option value="admin">Yönetici</option>
+  <option value="veteriner">Veteriner Fakültesi</option>
+  <option value="iktisat">İktisat Fakültesi</option>
+  <option value="suna_uzal">Suna UZAL</option>
+  <option value="uso">USO</option>
+</select>
 
             <button
               type="button"
