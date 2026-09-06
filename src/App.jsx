@@ -111,7 +111,13 @@ export default function App(){
     setTimeout(async()=>{
       try{
         const reader=new BrowserMultiFormatReader()
-        scannerControls.current = await reader.decodeFromConstraints({video:{facingMode:{ideal:'environment'}}}, videoRef.current, (result)=>{
+        scannerControls.current = await reader.decodeFromConstraints({
+  video:{
+    facingMode:{ideal:'environment'},
+    width:{ideal:1920},
+    height:{ideal:1080}
+  }
+}}, videoRef.current, (result)=>{
           if(result){ scannerControls.current?.stop(); setScanner(false); handleBarcode(result.getText(),mode) }
         })
       }catch(e){setScanner(false);flash('Kamera açılamadı. Kamera iznini kontrol et.')}
