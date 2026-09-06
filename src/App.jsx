@@ -1,0 +1,165 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Barcode, Bell, Boxes, CalendarDays, LogOut, Minus, Plus, Search, Settings, Trash2, X } from 'lucide-react'
+import { BrowserMultiFormatReader } from '@zxing/browser'
+import { supabase, configured } from './supabase'
+import { enableNotifications } from './notifications'
+
+const emptyProduct = { name:'', barcode:'', category:'', unit:'adet', notes:'', min_stock:0 }
+const emptyBatch = { lot_no:'', expiry_date:'', quantity:1 }
+const daysLeft = d => Math.ceil((new Date(d+'T23:59:59') - new Date()) / 86400000)
+const fmt = d => d ? new Intl.DateTimeFormat('tr-TR').format(new Date(d+'T12:00:00')) : '-'
+
+export default function App(){
+  const [session,setSession]=useState(null), [loading,setLoading]=useState(true)
+  const [tab,setTab]=useState(new URLSearchParams(location.search).get('tab') || 'home')
+  const [products,setProducts]=useState([]), [batches,setBatches]=useState([]), [query,setQuery]=useState('')
+  const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
+  const [modal,setModal]=useState(null), [productForm,setProductForm]=useState(emptyProduct), [batchForm,setBatchForm]=useState(emptyBatch)
+  const [message,setMessage]=useState(''), [scanner,setScanner]=useState(false), [scanMode,setScanMode]=useState('find')
+  const videoRef=useRef(null), scannerControls=useRef(null)
+
+  useEffect(()=>{
+    if(!configured){ setLoading(false); return }
+    supabase.auth.getSession().then(({data})=>{setSession(data.session);setLoading(false)})
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s))
+    return ()=>subscription.unsubscribe()
+  },[])
+
+  useEffect(()=>{ if(session) loadData() },[session])
+  useEffect(()=>()=>scannerControls.current?.stop(),[])
+
+  async function loadData(){
+    const [{data:p,error:pe},{data:b,error:be}] = await Promise.all([
+      supabase.from('products').select('*').order('name'),
+      supabase.from('batches').select('*,products(name,barcode,unit)').order('expiry_date')
+    ])
+    if(pe||be) return flash((pe||be).message)
+    setProducts(p||[]); setBatches(b||[])
+  }
+  function flash(t){ setMessage(t); setTimeout(()=>setMessage(''),3500) }
+  async function signIn(e){
+    e.preventDefault(); setLoginError('')
+    const {error}=await supabase.auth.signInWithPassword(login)
+    if(error)setLoginError('E-posta veya şifre hatalı.')
+  }
+  async function signOut(){ await supabase.auth.signOut() }
+
+  const totals=useMemo(()=>{
+    const qty=batches.reduce((a,b)=>a+Number(b.quantity||0),0)
+    const near=batches.filter(b=>daysLeft(b.expiry_date)>=0&&daysLeft(b.expiry_date)<=10).length
+    const expired=batches.filter(b=>daysLeft(b.expiry_date)<0).length
+    return {qty,near,expired}
+  },[batches])
+  const productQty=id=>batches.filter(b=>b.product_id===id).reduce((a,b)=>a+Number(b.quantity||0),0)
+  const filtered=products.filter(p=>(p.name+' '+(p.barcode||'')+' '+(p.category||'')).toLowerCase().includes(query.toLowerCase()))
+
+  function openNew(barcode=''){ setProductForm({...emptyProduct,barcode}); setBatchForm(emptyBatch); setModal('new') }
+  function openProduct(p){ setProductForm({...p}); setBatchForm(emptyBatch); setModal('product') }
+
+  async function saveNew(e){
+    e.preventDefault()
+    if(!productForm.name.trim()) return flash('Ürün adı gerekli.')
+    const {data:p,error}=await supabase.from('products').insert({...productForm,created_by:session.user.id}).select().single()
+    if(error) return flash(error.message.includes('duplicate')?'Bu barkod zaten kayıtlı.':error.message)
+    if(batchForm.expiry_date || batchForm.lot_no || Number(batchForm.quantity)>0){
+      const {error:be}=await supabase.from('batches').insert({product_id:p.id,...batchForm,quantity:Number(batchForm.quantity),created_by:session.user.id})
+      if(be) return flash(be.message)
+    }
+    setModal(null); await loadData(); flash('Ürün eklendi.')
+  }
+  async function updateProduct(e){
+    e.preventDefault()
+    const {error}=await supabase.from('products').update({name:productForm.name,barcode:productForm.barcode||null,category:productForm.category,unit:productForm.unit,notes:productForm.notes,min_stock:Number(productForm.min_stock||0)}).eq('id',productForm.id)
+    if(error)return flash(error.message)
+    setModal(null);await loadData();flash('Ürün güncellendi.')
+  }
+  async function addBatch(e){
+    e.preventDefault()
+    if(!batchForm.expiry_date) return flash('Son kullanma tarihi gerekli.')
+    const {error}=await supabase.from('batches').insert({product_id:productForm.id,...batchForm,quantity:Number(batchForm.quantity),created_by:session.user.id})
+    if(error)return flash(error.message)
+    setBatchForm(emptyBatch); await loadData(); flash('Parti eklendi.')
+  }
+  async function changeQty(batch,delta){
+    const next=Math.max(0,Number(batch.quantity)+delta)
+    const {error}=await supabase.rpc('change_batch_quantity',{p_batch_id:batch.id,p_delta:delta,p_user_id:session.user.id})
+    if(error) return flash(error.message)
+    if(next===0) flash('Parti stoğu 0 oldu.'); await loadData()
+  }
+  async function deleteBatch(id){
+    if(!confirm('Bu partiyi silmek istiyor musun?'))return
+    const {error}=await supabase.from('batches').delete().eq('id',id); if(error)return flash(error.message)
+    await loadData();flash('Parti silindi.')
+  }
+  async function deleteProduct(id){
+    if(!confirm('Ürünü ve tüm parti kayıtlarını silmek istiyor musun?'))return
+    const {error}=await supabase.from('products').delete().eq('id',id); if(error)return flash(error.message)
+    setModal(null);await loadData();flash('Ürün silindi.')
+  }
+
+  async function startScanner(mode='find'){
+    setScanMode(mode);setScanner(true)
+    setTimeout(async()=>{
+      try{
+        const reader=new BrowserMultiFormatReader()
+        scannerControls.current = await reader.decodeFromConstraints({video:{facingMode:{ideal:'environment'}}}, videoRef.current, (result)=>{
+          if(result){ scannerControls.current?.stop(); setScanner(false); handleBarcode(result.getText(),mode) }
+        })
+      }catch(e){setScanner(false);flash('Kamera açılamadı. Kamera iznini kontrol et.')}
+    },100)
+  }
+  function handleBarcode(code,mode){
+    if(mode==='new'){openNew(code);return}
+    const p=products.find(x=>x.barcode===code)
+    if(p)openProduct(p); else { if(confirm('Bu barkod kayıtlı değil. Yeni ürün olarak eklemek ister misin?')) openNew(code) }
+  }
+  async function notify(){
+    try{await enableNotifications(session.user.id);flash('Bildirimler açıldı.')}catch(e){flash(e.message)}
+  }
+
+  if(loading) return <div className="center">Yükleniyor…</div>
+  if(!configured) return <SetupMissing />
+  if(!session) return <Login login={login} setLogin={setLogin} error={loginError} submit={signIn}/>
+
+  const expiryList=[...batches].sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
+  return <div className="app">
+    <header><div><b>StokCep</b><small>Ortak stok takibi</small></div><button className="icon" onClick={signOut}><LogOut size={20}/></button></header>
+    <main>
+      {tab==='home' && <>
+        <section className="hero"><h1>Stokların kontrol altında.</h1><p>Barkod okut, ürün ekle ve SKT yaklaşanları tek ekrandan gör.</p><button onClick={()=>startScanner('find')}><Barcode size={20}/> Barkod okut</button></section>
+        <div className="stats"><Stat n={totals.qty} t="Toplam adet"/><Stat n={totals.near} t="10 gün içinde" warn/><Stat n={totals.expired} t="Süresi geçen" danger/></div>
+        <div className="sectionTitle"><h2>Yaklaşan tarihler</h2><button className="link" onClick={()=>setTab('expiry')}>Tümünü gör</button></div>
+        <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
+      </>}
+      {tab==='products' && <>
+        <div className="sectionTitle"><h1>Ürünler</h1><button onClick={()=>openNew()}><Plus size={18}/> Ürün ekle</button></div>
+        <div className="search"><Search size={18}/><input placeholder="Ürün veya barkod ara" value={query} onChange={e=>setQuery(e.target.value)}/><button className="scanmini" onClick={()=>startScanner('find')}><Barcode size={20}/></button></div>
+        <div className="list">{filtered.map(p=><button className="productRow" key={p.id} onClick={()=>openProduct(p)}><div><b>{p.name}</b><small>{p.barcode||'Barkod yok'} · {p.category||'Kategori yok'}</small></div><strong>{productQty(p.id)} {p.unit}</strong></button>)}{!filtered.length&&<Empty text="Ürün bulunamadı."/>}</div>
+      </>}
+      {tab==='expiry' && <>
+        <div className="sectionTitle"><h1>SKT Takibi</h1></div>
+        <div className="list">{expiryList.map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz tarihli parti yok."/>}</div>
+      </>}
+      {tab==='settings' && <>
+        <h1>Ayarlar</h1><div className="card"><h3>Telefon bildirimleri</h3><p>Son kullanma tarihine 10 gün kalan partiler için bu telefonda bildirim al.</p><button onClick={notify}><Bell size={18}/> Bildirimleri aç</button></div>
+        <div className="card"><h3>Hesap</h3><p>{session.user.email}</p><button className="secondary" onClick={signOut}>Çıkış yap</button></div>
+      </>}
+    </main>
+    <nav>{[['home',Boxes,'Ana Sayfa'],['products',Search,'Ürünler'],['expiry',CalendarDays,'SKT'],['settings',Settings,'Ayarlar']].map(([k,I,t])=><button key={k} className={tab===k?'active':''} onClick={()=>setTab(k)}><I size={21}/><span>{t}</span></button>)}</nav>
+    {message&&<div className="toast">{message}</div>}
+    {scanner&&<div className="scanner"><button className="close" onClick={()=>{scannerControls.current?.stop();setScanner(false)}}><X/></button><video ref={videoRef}/><div className="frame"></div><p>Barkodu çerçevenin içine getir</p></div>}
+    {modal&&<Modal close={()=>setModal(null)}>
+      {modal==='new'?<ProductForm title="Yeni ürün" form={productForm} setForm={setProductForm} batch={batchForm} setBatch={setBatchForm} submit={saveNew} scan={()=>startScanner('new')} isNew/>:
+      <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>b.product_id===productForm.id)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
+    </Modal>}
+  </div>
+}
+
+function Login({login,setLogin,error,submit}){return <div className="login"><div className="brand"><img src="/icon.svg"/><h1>StokCep</h1><p>Stok ve son kullanma tarihi takibi</p></div><form onSubmit={submit}><label>E-posta<input type="email" required value={login.email} onChange={e=>setLogin({...login,email:e.target.value})}/></label><label>Şifre<input type="password" required value={login.password} onChange={e=>setLogin({...login,password:e.target.value})}/></label>{error&&<div className="error">{error}</div>}<button>Giriş yap</button></form></div>}
+function SetupMissing(){return <div className="login"><div className="brand"><img src="/icon.svg"/><h1>StokCep hazır</h1><p>Bağlantı bilgileri henüz girilmemiş. Paketteki KURULUM.md dosyasındaki adımları tamamla.</p></div></div>}
+function Stat({n,t,warn,danger}){return <div className={'stat '+(warn?'warn ':'')+(danger?'danger':'')}><strong>{n}</strong><span>{t}</span></div>}
+function Empty({text}){return <div className="empty">{text}</div>}
+function BatchRow({b}){const d=daysLeft(b.expiry_date);return <div className="batchRow"><div><b>{b.products?.name||'Ürün'}</b><small>{b.lot_no?`Lot: ${b.lot_no} · `:''}{b.quantity} {b.products?.unit||'adet'} · {fmt(b.expiry_date)}</small></div><span className={d<0?'pill red':d<=10?'pill orange':'pill'}>{d<0?`${Math.abs(d)} gün geçti`:d===0?'Bugün':`${d} gün`}</span></div>}
+function Modal({children,close}){return <div className="overlay" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div className="modal"><button className="closeModal" onClick={close}><X/></button>{children}</div></div>}
+function ProductForm({title,form,setForm,batch,setBatch,submit,scan,isNew}){return <form onSubmit={submit}><h2>{title}</h2><label>Ürün adı<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Barkod<div className="inline"><input value={form.barcode||''} onChange={e=>setForm({...form,barcode:e.target.value})}/>{scan&&<button type="button" className="secondary" onClick={scan}><Barcode size={18}/></button>}</div></label><div className="grid2"><label>Kategori<input value={form.category||''} onChange={e=>setForm({...form,category:e.target.value})}/></label><label>Birim<select value={form.unit||'adet'} onChange={e=>setForm({...form,unit:e.target.value})}><option>adet</option><option>kutu</option><option>şişe</option><option>paket</option><option>ml</option></select></label></div><label>Minimum stok<input type="number" min="0" value={form.min_stock||0} onChange={e=>setForm({...form,min_stock:e.target.value})}/></label><label>Not<textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})}/></label>{isNew&&<><h3>İlk parti</h3><div className="grid2"><label>Lot no<input value={batch.lot_no} onChange={e=>setBatch({...batch,lot_no:e.target.value})}/></label><label>Adet<input type="number" min="0" value={batch.quantity} onChange={e=>setBatch({...batch,quantity:e.target.value})}/></label></div><label>Son kullanma tarihi<input type="date" value={batch.expiry_date} onChange={e=>setBatch({...batch,expiry_date:e.target.value})}/></label></>}<button type="submit">Kaydet</button></form>}
+function ProductDetail({product,setProduct,batches,batch,setBatch,update,addBatch,changeQty,deleteBatch,deleteProduct}){return <div><ProductForm title="Ürün bilgileri" form={product} setForm={setProduct} batch={batch} setBatch={setBatch} submit={update}/><hr/><h3>Partiler</h3><div className="list compact">{batches.map(b=><div className="manageBatch" key={b.id}><div><b>{fmt(b.expiry_date)}</b><small>{b.lot_no?`Lot ${b.lot_no}`:'Lot yok'}</small></div><div className="qty"><button className="secondary" onClick={()=>changeQty(b,-1)}><Minus size={16}/></button><strong>{b.quantity}</strong><button className="secondary" onClick={()=>changeQty(b,1)}><Plus size={16}/></button><button className="dangerBtn" onClick={()=>deleteBatch(b.id)}><Trash2 size={16}/></button></div></div>)}{!batches.length&&<Empty text="Bu üründe parti yok."/>}</div><form onSubmit={addBatch} className="addBatch"><h3>Yeni parti ekle</h3><div className="grid2"><label>Lot no<input value={batch.lot_no} onChange={e=>setBatch({...batch,lot_no:e.target.value})}/></label><label>Adet<input type="number" min="1" required value={batch.quantity} onChange={e=>setBatch({...batch,quantity:e.target.value})}/></label></div><label>Son kullanma tarihi<input type="date" required value={batch.expiry_date} onChange={e=>setBatch({...batch,expiry_date:e.target.value})}/></label><button>Parti ekle</button></form><button className="deleteProduct" onClick={()=>deleteProduct(product.id)}><Trash2 size={18}/> Ürünü sil</button></div>}
