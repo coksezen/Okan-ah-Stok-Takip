@@ -919,6 +919,7 @@ setRegisterSuccess('Hesabın oluşturuldu. Şimdi giriş yapabilirsin.')
 
       <input
         type="email"
+        autoComplete="username"
         placeholder="E-posta"
         value={login.email}
         onChange={e=>setLogin({...login,email:e.target.value})}
@@ -927,6 +928,7 @@ setRegisterSuccess('Hesabın oluşturuldu. Şimdi giriş yapabilirsin.')
 
       <input
         type="password"
+        autoComplete={register ? "new-password" : "current-password"}
         placeholder="Şifre"
         value={login.password}
         onChange={e=>setLogin({...login,password:e.target.value})}
