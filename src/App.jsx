@@ -201,39 +201,61 @@ export default function App(){
         <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
       </>}
       {tab==='needs' && <>
-  <div className="sectionTitle">
-    <h1>İhtiyaçlar</h1>
-  </div>
+  {!selectedBranch ? <>
+    <div className="sectionTitle">
+      <h1>İhtiyaçlar</h1>
+    </div>
 
-  <div className="list">
-    <button className="productRow">
-      <div>
-        <b>Veteriner Fakültesi</b>
-        <small>Eksik listesini görüntüle</small>
-      </div>
-    </button>
+    <div className="list">
+      <button className="productRow" onClick={()=>setSelectedBranch('veteriner')}>
+        <div>
+          <b>Veteriner Fakültesi</b>
+          <small>Eksik listesini görüntüle</small>
+        </div>
+      </button>
 
-    <button className="productRow">
-      <div>
-        <b>İktisat Fakültesi</b>
-        <small>Eksik listesini görüntüle</small>
-      </div>
-    </button>
+      <button className="productRow" onClick={()=>setSelectedBranch('iktisat')}>
+        <div>
+          <b>İktisat Fakültesi</b>
+          <small>Eksik listesini görüntüle</small>
+        </div>
+      </button>
 
-    <button className="productRow">
-      <div>
-        <b>Suna UZAL</b>
-        <small>Eksik listesini görüntüle</small>
-      </div>
-    </button>
+      <button className="productRow" onClick={()=>setSelectedBranch('suna_uzal')}>
+        <div>
+          <b>Suna UZAL</b>
+          <small>Eksik listesini görüntüle</small>
+        </div>
+      </button>
 
-    <button className="productRow">
-      <div>
-        <b>USO</b>
-        <small>Eksik listesini görüntüle</small>
-      </div>
-    </button>
-  </div>
+      <button className="productRow" onClick={()=>setSelectedBranch('uso')}>
+        <div>
+          <b>USO</b>
+          <small>Eksik listesini görüntüle</small>
+        </div>
+      </button>
+    </div>
+  </> : <>
+    <div className="sectionTitle">
+      <h1>
+        {selectedBranch==='veteriner' ? 'Veteriner Fakültesi' :
+         selectedBranch==='iktisat' ? 'İktisat Fakültesi' :
+         selectedBranch==='suna_uzal' ? 'Suna UZAL' : 'USO'}
+      </h1>
+
+      <button
+        className="secondary"
+        onClick={()=>setSelectedBranch(null)}
+      >
+        Geri
+      </button>
+    </div>
+
+    <div className="card">
+      <h3>İhtiyaç Listesi</h3>
+      <p>Henüz ihtiyaç eklenmedi.</p>
+    </div>
+  </>}
 </>}
       {tab==='products' && <>
         <div className="sectionTitle"><h1>Ürünler</h1><button onClick={()=>openNew()}><Plus size={18}/> Ürün ekle</button></div>
