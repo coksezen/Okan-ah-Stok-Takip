@@ -16,6 +16,8 @@ export default function App(){
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
   const [modal,setModal]=useState(null), [productForm,setProductForm]=useState(emptyProduct), [batchForm,setBatchForm]=useState(emptyBatch)
   const [selectedBranch,setSelectedBranch]=useState(null)
+  const [needs,setNeeds]=useState([])
+  const [needForm,setNeedForm]=useState({product_id:'',quantity:1,note:''})
   const [message,setMessage]=useState(''), [scanner,setScanner]=useState(false), [scanMode,setScanMode]=useState('find')
   const videoRef=useRef(null), scannerControls=useRef(null)
 
@@ -28,16 +30,53 @@ export default function App(){
 
   useEffect(()=>{ if(session) loadData() },[session])
   useEffect(()=>()=>scannerControls.current?.stop(),[])
+async function loadData(){
+  const [
+    {data:p,error:pe},
+    {data:b,error:be},
+    {data:n,error:ne}
+  ] = await Promise.all([
+    supabase.from('products').select('*').order('name'),
+    supabase.from('batches').select('*,products(name,barcode,unit)').order('expiry_date'),
+    supabase.from('branch_needs').select('*,products(name,barcode,unit)').order('created_at',{ascending:false})
+  ])
 
-  async function loadData(){
-    const [{data:p,error:pe},{data:b,error:be}] = await Promise.all([
-      supabase.from('products').select('*').order('name'),
-      supabase.from('batches').select('*,products(name,barcode,unit)').order('expiry_date')
-    ])
-    if(pe||be) return flash((pe||be).message)
-    setProducts(p||[]); setBatches(b||[])
+  if(pe||be||ne) return flash((pe||be||ne).message)
+
+  setProducts(p||[])
+  setBatches(b||[])
+  setNeeds(n||[])
+}
+
+async function addNeed(e){
+  e.preventDefault()
+
+  if(!selectedBranch) return
+  if(!needForm.product_id) return flash('Ürün seçmelisin.')
+  if(!needForm.quantity || Number(needForm.quantity) <= 0){
+    return flash('Adet 1 veya daha fazla olmalı.')
   }
-  function flash(t){ setMessage(t); setTimeout(()=>setMessage(''),3500) }
+
+  const {error}=await supabase
+    .from('branch_needs')
+    .insert({
+      branch:selectedBranch,
+      product_id:needForm.product_id,
+      quantity:Number(needForm.quantity),
+      note:needForm.note || null
+    })
+
+  if(error) return flash(error.message)
+
+  setNeedForm({product_id:'',quantity:1,note:''})
+  flash('İhtiyaç eklendi.')
+  loadData()
+}
+
+function flash(t){
+  setMessage(t)
+  setTimeout(()=>setMessage(''),3500)
+}
   async function signIn(e){
     e.preventDefault(); setLoginError('')
     const {error}=await supabase.auth.signInWithPassword(login)
