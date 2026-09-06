@@ -11,3 +11,4 @@
 - iPhone/Android ana ekrana kurulum
 
 Kurulum için `KURULUM.md` dosyasını takip et.
+Cloudflare yeniden dağıtım
