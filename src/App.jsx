@@ -840,13 +840,9 @@ function Login({login,setLogin,error,submit,signUp}){
     setBusy(true)
 
     try{
-      const data=await signUp(login.email,login.password)
+    await signUp(login.email,login.password)
 
-      if(data?.session){
-        setRegisterSuccess('Hesabın oluşturuldu.')
-      }else{
-        setRegisterSuccess('Hesabın oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.')
-      }
+setRegisterSuccess('Hesabın oluşturuldu. Şimdi giriş yapabilirsin.')
 
       setRegister(false)
     }catch(e){
