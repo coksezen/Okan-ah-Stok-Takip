@@ -291,9 +291,67 @@ function flash(t){
     </div>
 
     <div className="card">
-      <h3>İhtiyaç Listesi</h3>
-      <p>Henüz ihtiyaç eklenmedi.</p>
+  <h3>İhtiyaç Ekle</h3>
+
+  <form onSubmit={addNeed}>
+    <select
+      value={needForm.product_id}
+      onChange={e=>setNeedForm({...needForm,product_id:e.target.value})}
+      required
+    >
+      <option value="">Ürün seç</option>
+      {products.map(p=>
+        <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+      )}
+    </select>
+
+    <input
+      type="number"
+      min="1"
+      placeholder="Adet"
+      value={needForm.quantity}
+      onChange={e=>setNeedForm({...needForm,quantity:e.target.value})}
+      required
+    />
+
+    <input
+      type="text"
+      placeholder="Not (isteğe bağlı)"
+      value={needForm.note}
+      onChange={e=>setNeedForm({...needForm,note:e.target.value})}
+    />
+
+    <button type="submit">
+      İhtiyaç Ekle
+    </button>
+  </form>
+</div>
+
+<div className="card">
+  <h3>İhtiyaç Listesi</h3>
+
+  {needs.filter(n=>n.branch===selectedBranch).length===0 ? (
+    <p>Henüz ihtiyaç eklenmedi.</p>
+  ) : (
+    <div className="list">
+      {needs
+        .filter(n=>n.branch===selectedBranch)
+        .map(n=>
+          <div className="productRow" key={n.id}>
+            <div>
+              <b>{n.products?.name || 'Ürün'}</b>
+              <small>
+                {n.quantity} adet
+                {n.note ? ` • ${n.note}` : ''}
+              </small>
+            </div>
+          </div>
+        )}
     </div>
+  )}
+</div>
   </>}
 </>}
       {tab==='products' && <>
