@@ -576,10 +576,54 @@ function flash(t){
         <div className="search"><Search size={18}/><input placeholder="Ürün veya barkod ara" value={query} onChange={e=>setQuery(e.target.value)}/><button className="scanmini" onClick={()=>startScanner('find')}><Barcode size={20}/></button></div>
         <div className="list">{filtered.map(p=><button className="productRow" key={p.id} onClick={()=>openProduct(p)}><div><b>{p.name}</b><small>{p.barcode||'Barkod yok'} · {p.category||'Kategori yok'}</small></div><strong>{productQty(p.id)} {p.unit}</strong></button>)}{!filtered.length&&<Empty text="Ürün bulunamadı."/>}</div>
       </>}
-      {tab==='expiry' && <>
-        <div className="sectionTitle"><h1>SKT Takibi</h1></div>
-        <div className="list">{expiryList.map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz tarihli parti yok."/>}</div>
-      </>}
+    {tab==='expiry' && <>
+  <div className="sectionTitle">
+    <h1>SKT Takibi</h1>
+  </div>
+
+  {profile?.role==='admin' && (
+    <div className="list">
+      <button
+        className={selectedBranch==='veteriner' ? '' : 'secondary'}
+        onClick={()=>setSelectedBranch('veteriner')}
+      >
+        Veteriner Fakültesi
+      </button>
+
+      <button
+        className={selectedBranch==='iktisat' ? '' : 'secondary'}
+        onClick={()=>setSelectedBranch('iktisat')}
+      >
+        İktisat Fakültesi
+      </button>
+
+      <button
+        className={selectedBranch==='suna_uzal' ? '' : 'secondary'}
+        onClick={()=>setSelectedBranch('suna_uzal')}
+      >
+        Suna UZAL
+      </button>
+
+      <button
+        className={selectedBranch==='uso' ? '' : 'secondary'}
+        onClick={()=>setSelectedBranch('uso')}
+      >
+        USO
+      </button>
+    </div>
+  )}
+
+  <div className="list">
+    {expiryList
+      .filter(b=>b.branch===selectedBranch)
+      .map(b=><BatchRow key={b.id} b={b}/>)
+    }
+
+    {!expiryList.filter(b=>b.branch===selectedBranch).length && (
+      <Empty text="Bu şubede yaklaşan SKT kaydı yok."/>
+    )}
+  </div>
+</>}
       {tab==='settings' && <>
         <div className="card">
   <h3>Telefon bildirimleri</h3>
