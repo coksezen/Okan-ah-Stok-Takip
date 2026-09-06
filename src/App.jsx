@@ -435,8 +435,60 @@ function flash(t){
   if(!session) return <Login login={login} setLogin={setLogin} error={loginError} submit={signIn} signUp={signUp}/>
 
   const expiryList=[...batches].sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
+  const today=new Date()
+today.setHours(0,0,0,0)
+
+const expiryWarnings=batches
+  .filter(b=>{
+    // Çalışan sadece kendi şubesinin uyarısını görsün
+    if(profile?.role==='branch' && b.branch!==profile.branch) return false
+
+    const expiry=new Date(b.expiry_date+'T00:00:00')
+    const daysLeft=Math.ceil((expiry-today)/(1000*60*60*24))
+
+    return daysLeft>=0 && daysLeft<=10
+  })
+  .map(b=>{
+    const expiry=new Date(b.expiry_date+'T00:00:00')
+    const daysLeft=Math.ceil((expiry-today)/(1000*60*60*24))
+
+    return {...b,daysLeft}
+  })
+  .sort((a,b)=>a.daysLeft-b.daysLeft)
   return <div className="app">
     <header><div><b>StokCep</b><small>Ortak stok takibi</small></div><button className="icon" onClick={signOut}><LogOut size={20}/></button></header>
+   {expiryWarnings.length>0 && (
+  <div className="card">
+    <h3>⚠️ SKT Uyarıları</h3>
+
+    <div className="list">
+      {expiryWarnings.map(b=>(
+        <div className="productRow" key={b.id}>
+          <div>
+            <b>{b.products?.name || 'Ürün'}</b>
+
+            <small>
+              {b.daysLeft<=3
+                ? `🚨 SKT'ye ${b.daysLeft} gün kaldı`
+                : `⚠️ SKT'ye ${b.daysLeft} gün kaldı`}
+            </small>
+
+            <small>
+              {b.expiry_date}
+            </small>
+          </div>
+
+          <button
+            type="button"
+            onClick={()=>deleteBatch(b.id)}
+          >
+            Toplandı
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
     <main>
       {tab==='home' && <>
         <section className="hero"><h1>Stokların kontrol altında.</h1><p>Barkod okut, ürün ekle ve SKT yaklaşanları tek ekrandan gör.</p><button onClick={()=>startScanner('find')}><Barcode size={20}/> Barkod okut</button></section>
