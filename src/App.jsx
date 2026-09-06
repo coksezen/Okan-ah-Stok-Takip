@@ -334,7 +334,6 @@ function flash(t){
   await loadData()
   flash('Parti eklendi.')
 }
-  }
   async function changeQty(batch,delta){
     const next=Math.max(0,Number(batch.quantity)+delta)
     const {error}=await supabase.rpc('change_batch_quantity',{p_batch_id:batch.id,p_delta:delta,p_user_id:session.user.id})
@@ -810,7 +809,7 @@ function flash(t){
     {modal&&<Modal close={()=>setModal(null)}>
       {modal==='new'?<ProductForm title="Yeni ürün" form={productForm} setForm={setProductForm} batch={batchForm} setBatch={setBatchForm} submit={saveNew} scan={()=>startScanner('new')} isNew/>:
       <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>b.product_id===productForm.id)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
-    </Modal>
+    </Modal>}
   </div>
 }
 
