@@ -18,6 +18,12 @@ export default function App(){
   const [selectedBranch,setSelectedBranch]=useState(null)
   const [needs,setNeeds]=useState([])
   const [profile,setProfile]=useState(null)
+  const [allowedUsers,setAllowedUsers]=useState([])
+  const [userForm,setUserForm]=useState({
+  email:'',
+  role:'branch',
+  branch:'suna_uzal'
+})
 const [needForm,setNeedForm]=useState({
   item_name:'',
   quantity:1,
@@ -49,19 +55,97 @@ async function loadData(){
     supabase.from('user_profiles').select('*').eq('user_id',session.user.id).single()
   ])
 
-  if(pe||be||ne||pre) return flash((pe||be||ne||pre).message)
+  if(pe||be||ne||pre){
+    return flash((pe||be||ne||pre).message)
+  }
 
   setProducts(p||[])
   setBatches(b||[])
   setNeeds(n||[])
   setProfile(pr||null)
 
- if(pr?.role==='branch' && pr?.branch){
-  setSelectedBranch(pr.branch)
-  setTab('needs')
+  if(pr?.role==='admin'){
+    const {data:au,error:aue}=await supabase
+      .from('allowed_users')
+      .select('*')
+      .order('email')
+
+    if(aue) return flash(aue.message)
+
+    setAllowedUsers(au||[])
+  }else{
+    setAllowedUsers([])
+  }
+
+  if(pr?.role==='branch' && pr?.branch){
+    setSelectedBranch(pr.branch)
+    setTab('needs')
+  }
 }
+async function addAllowedUser(e){
+  e.preventDefault()
+
+  const email=userForm.email.trim().toLowerCase()
+
+  if(!email) return flash('E-posta adresi yazmalısın.')
+
+  const branch=userForm.role==='admin' ? null : userForm.branch
+
+  const {error}=await supabase
+    .from('allowed_users')
+    .insert({
+      email,
+      role:userForm.role,
+      branch
+    })
+
+  if(error) return flash(error.message)
+
+  setUserForm({
+    email:'',
+    role:'branch',
+    branch:'suna_uzal'
+  })
+
+  flash('Kullanıcı yetkisi eklendi.')
+  loadData()
 }
 
+async function updateAllowedUser(email,role,branch){
+  const finalBranch=role==='admin' ? null : branch
+
+  const {error}=await supabase
+    .from('allowed_users')
+    .update({
+      role,
+      branch:finalBranch
+    })
+    .eq('email',email)
+
+  if(error) return flash(error.message)
+
+  flash('Kullanıcı yetkisi güncellendi.')
+  loadData()
+}
+
+async function removeAllowedUser(email){
+  const ok=confirm(`${email} için uygulama erişimi kaldırılsın mı?`)
+  if(!ok) return
+
+  if(email.toLowerCase()===session.user.email?.toLowerCase()){
+    return flash('Kendi erişimini kaldıramazsın.')
+  }
+
+  const {error}=await supabase
+    .from('allowed_users')
+    .delete()
+    .eq('email',email)
+
+  if(error) return flash(error.message)
+
+  flash('Kullanıcının erişimi kaldırıldı.')
+  loadData()
+}
 async function addNeed(e){
   e.preventDefault()
 
@@ -513,6 +597,103 @@ function flash(t){
     Test bildirimi gönder
   </button>
 </div>
+        {profile?.role==='admin' && (
+  <div className="card">
+    <h3>Kullanıcı Yönetimi</h3>
+
+    <form onSubmit={addAllowedUser}>
+      <input
+        type="email"
+        placeholder="E-posta adresi"
+        value={userForm.email}
+        onChange={e=>setUserForm({...userForm,email:e.target.value})}
+        required
+      />
+
+      <select
+        value={userForm.role==='admin' ? 'admin' : userForm.branch}
+        onChange={e=>{
+          const value=e.target.value
+
+          if(value==='admin'){
+            setUserForm({...userForm,role:'admin',branch:''})
+          }else{
+            setUserForm({...userForm,role:'branch',branch:value})
+          }
+        }}
+      >
+        <option value="admin">Yönetici</option>
+        <option value="veteriner">Veteriner Fakültesi</option>
+        <option value="iktisat">İktisat Fakültesi</option>
+        <option value="suna_uzal">Suna UZAL</option>
+        <option value="uso">USO</option>
+      </select>
+
+      <button type="submit">
+        Kullanıcı Ekle
+      </button>
+    </form>
+
+    <h3>Yetkili Kullanıcılar</h3>
+
+    <div className="list">
+      {allowedUsers.map(u=>(
+        <div className="productRow" key={u.email}>
+          <div>
+            <b>{u.email}</b>
+            <small>
+              {u.role==='admin'
+                ? 'Yönetici'
+                : u.branch==='veteriner'
+                  ? 'Veteriner Fakültesi'
+                  : u.branch==='iktisat'
+                    ? 'İktisat Fakültesi'
+                    : u.branch==='suna_uzal'
+                      ? 'Suna UZAL'
+                      : u.branch==='uso'
+                        ? 'USO'
+                        : 'Şube atanmamış'}
+            </small>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={()=>{
+                const value=prompt(
+                  'Yeni yetki yaz:\nadmin\nveteriner\niktisat\nsuna_uzal\nuso'
+                )
+
+                if(!value) return
+
+                if(value==='admin'){
+                  updateAllowedUser(u.email,'admin',null)
+                }else if(
+                  ['veteriner','iktisat','suna_uzal','uso'].includes(value)
+                ){
+                  updateAllowedUser(u.email,'branch',value)
+                }else{
+                  flash('Geçersiz yetki.')
+                }
+              }}
+            >
+              Yetki Değiştir
+            </button>
+
+            <button
+              type="button"
+              className="secondary"
+              onClick={()=>removeAllowedUser(u.email)}
+            >
+              Erişimi Kaldır
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
         <div className="card"><h3>Hesap</h3><p>{session.user.email}</p><button className="secondary" onClick={signOut}>Çıkış yap</button></div>
       </>}
     </main>
