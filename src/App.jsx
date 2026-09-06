@@ -201,7 +201,23 @@ async function addNeed(e){
   flash(`Teslim kaydedildi. Kalan: ${remaining}`)
   loadData()
 }
+async function markGroupPickedUp(ids){
+  const ok=confirm('Bu ürün depodan alındı olarak işaretlensin mi?')
+  if(!ok) return
 
+  const {error}=await supabase
+    .from('branch_needs')
+    .update({
+      picked_up:true,
+      picked_up_at:new Date().toISOString()
+    })
+    .in('id',ids)
+
+  if(error) return flash(error.message)
+
+  flash('Depodan alındı olarak işaretlendi.')
+  loadData()
+}
 async function completeNeed(id){
   const ok = confirm('Bu ihtiyaç tamamen karşılandı mı?')
   if(!ok) return
@@ -455,6 +471,44 @@ const expiryWarnings=batches
     return {...b,daysLeft}
   })
   .sort((a,b)=>a.daysLeft-b.daysLeft)
+  const branchLabels={
+  veteriner:'Veteriner Fakültesi',
+  iktisat:'İktisat Fakültesi',
+  suna_uzal:'Suna UZAL',
+  uso:'USO'
+}
+
+const groupedNeeds=Object.values(
+  needs.reduce((acc,n)=>{
+    const item=(n.item_name || '').trim()
+    const unit=(n.unit || 'adet').trim()
+    const key=`${item.toLocaleLowerCase('tr-TR')}__${unit.toLocaleLowerCase('tr-TR')}`
+
+    if(!acc[key]){
+      acc[key]={
+        key,
+        item_name:item,
+        unit,
+        total:0,
+        branches:{},
+        ids:[],
+        allPickedUp:true
+      }
+    }
+
+    const qty=Number(n.quantity) || 0
+
+    acc[key].total+=qty
+    acc[key].branches[n.branch]=(acc[key].branches[n.branch] || 0)+qty
+    acc[key].ids.push(n.id)
+
+    if(!n.picked_up){
+      acc[key].allPickedUp=false
+    }
+
+    return acc
+  },{})
+)
   return <div className="app">
     <header><div><b>StokCep</b><small>Ortak stok takibi</small></div><button className="icon" onClick={signOut}><LogOut size={20}/></button></header>
    {expiryWarnings.length>0 && (
@@ -496,6 +550,48 @@ const expiryWarnings=batches
         <div className="sectionTitle"><h2>Yaklaşan tarihler</h2><button className="link" onClick={()=>setTab('expiry')}>Tümünü gör</button></div>
         <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
       </>}
+      {profile?.role==='admin' && tab==='home' && (
+  <div className="card">
+    <h3>Depodan Alınacaklar</h3>
+
+    {!groupedNeeds.length ? (
+      <p>Şu an ortak ihtiyaç yok.</p>
+    ) : (
+      <div className="list">
+        {groupedNeeds.map(g=>(
+         <div className="productRow" key={g.key}>
+  <div>
+    <b>{g.item_name}</b>
+
+    <small>
+      Toplam: {g.total} {g.unit}
+    </small>
+
+    {Object.entries(g.branches).map(([branch,qty])=>(
+      <small key={branch}>
+        {branchLabels[branch] || branch}: {qty} {g.unit}
+      </small>
+    ))}
+  </div>
+
+  {g.allPickedUp ? (
+    <button type="button" className="secondary" disabled>
+      ✓ Depodan Alındı
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={()=>markGroupPickedUp(g.ids)}
+    >
+      Depodan Aldım
+    </button>
+  )}
+</div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
       {tab==='needs' && <>
  {profile?.role==='admin' && !selectedBranch ? <>
     <div className="sectionTitle">
