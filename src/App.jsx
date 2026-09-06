@@ -780,14 +780,30 @@ function flash(t){
   </nav>
 ) : (
   <nav>
-    <button
-      className="active"
-      onClick={()=>setTab('needs')}
-    >
-      <ClipboardList size={22}/>
-      <span>İhtiyaçlar</span>
-    </button>
-  </nav>
+  <button
+    className={tab==='products' ? 'active' : ''}
+    onClick={()=>setTab('products')}
+  >
+    <Search size={22}/>
+    <span>Ürünler</span>
+  </button>
+
+  <button
+    className={tab==='needs' ? 'active' : ''}
+    onClick={()=>setTab('needs')}
+  >
+    <ClipboardList size={22}/>
+    <span>İhtiyaçlar</span>
+  </button>
+
+  <button
+    className={tab==='expiry' ? 'active' : ''}
+    onClick={()=>setTab('expiry')}
+  >
+    <CalendarDays size={22}/>
+    <span>SKT</span>
+  </button>
+</nav>
 )}
     {message&&<div className="toast">{message}</div>}
     {scanner&&<div className="scanner"><button className="close" onClick={()=>{scannerControls.current?.stop();setScanner(false)}}><X/></button><video ref={videoRef}/><div className="frame"></div><p>Barkodu çerçevenin içine getir</p></div>}
