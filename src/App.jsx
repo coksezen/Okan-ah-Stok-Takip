@@ -539,12 +539,14 @@ const expiryWarnings=batches
          selectedBranch==='suna_uzal' ? 'Suna UZAL' : 'USO'}
       </h1>
 
-      <button
-        className="secondary"
-        onClick={()=>setSelectedBranch(null)}
-      >
-        Geri
-      </button>
+     {profile?.role==='admin' && (
+  <button
+    className="secondary"
+    onClick={()=>setSelectedBranch(null)}
+  >
+    Geri
+  </button>
+)}
     </div>
 
     <div className="card">
