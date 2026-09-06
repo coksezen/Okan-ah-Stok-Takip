@@ -115,7 +115,20 @@ export default function App(){
   }
   async function notify(){
     try{await enableNotifications(session.user.id);flash('Bildirimler açıldı.')}catch(e){flash(e.message)}
+  }async function testNotification(){
+  try{
+    const {data,error}=await supabase.functions.invoke(
+      'send-expiry-notifications',
+      {body:{test:true}}
+    )
+
+    if(error) throw error
+
+    flash(`Test bildirimi gönderildi. ${data?.sent ?? 0} cihaza gönderildi.`)
+  }catch(e){
+    flash(`Test bildirimi hatası: ${e.message}`)
   }
+}
 
   if(loading) return <div className="center">Yükleniyor…</div>
   if(!configured) return <SetupMissing />
@@ -141,7 +154,22 @@ export default function App(){
         <div className="list">{expiryList.map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz tarihli parti yok."/>}</div>
       </>}
       {tab==='settings' && <>
-        <h1>Ayarlar</h1><div className="card"><h3>Telefon bildirimleri</h3><p>Son kullanma tarihine 10 gün kalan partiler için bu telefonda bildirim al.</p><button onClick={notify}><Bell size={18}/> Bildirimleri aç</button></div>
+        <div className="card">
+  <h3>Telefon bildirimleri</h3>
+  <p>Son kullanma tarihine 10 gün kalan partiler için bu telefonda bildirim al.</p>
+
+  <button onClick={notify}>
+    Bildirimleri aç
+  </button>
+
+  <button
+    className="secondary"
+    onClick={testNotification}
+    style={{marginLeft:'10px'}}
+  >
+    Test bildirimi gönder
+  </button>
+</div>
         <div className="card"><h3>Hesap</h3><p>{session.user.email}</p><button className="secondary" onClick={signOut}>Çıkış yap</button></div>
       </>}
     </main>
