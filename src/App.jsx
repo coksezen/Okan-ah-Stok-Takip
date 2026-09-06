@@ -15,6 +15,7 @@ export default function App(){
   const [products,setProducts]=useState([]), [batches,setBatches]=useState([]), [query,setQuery]=useState('')
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
   const [modal,setModal]=useState(null), [productForm,setProductForm]=useState(emptyProduct), [batchForm,setBatchForm]=useState(emptyBatch)
+  const [selectedBranch,setSelectedBranch]=useState(null)
   const [message,setMessage]=useState(''), [scanner,setScanner]=useState(false), [scanMode,setScanMode]=useState('find')
   const videoRef=useRef(null), scannerControls=useRef(null)
 
