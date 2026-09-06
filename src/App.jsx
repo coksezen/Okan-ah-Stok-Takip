@@ -17,7 +17,12 @@ export default function App(){
   const [modal,setModal]=useState(null), [productForm,setProductForm]=useState(emptyProduct), [batchForm,setBatchForm]=useState(emptyBatch)
   const [selectedBranch,setSelectedBranch]=useState(null)
   const [needs,setNeeds]=useState([])
-  const [needForm,setNeedForm]=useState({product_id:'',quantity:1,note:''})
+const [needForm,setNeedForm]=useState({
+  item_name:'',
+  quantity:1,
+  unit:'adet',
+  note:''
+})
   const [message,setMessage]=useState(''), [scanner,setScanner]=useState(false), [scanMode,setScanMode]=useState('find')
   const videoRef=useRef(null), scannerControls=useRef(null)
 
@@ -52,23 +57,28 @@ async function addNeed(e){
   e.preventDefault()
 
   if(!selectedBranch) return
-  if(!needForm.product_id) return flash('Ürün seçmelisin.')
+  if(!needForm.item_name.trim()) return flash('Ürün adı yazmalısın.')
   if(!needForm.quantity || Number(needForm.quantity) <= 0){
     return flash('Adet 1 veya daha fazla olmalı.')
   }
 
   const {error}=await supabase
     .from('branch_needs')
-    .insert({
-      branch:selectedBranch,
-      product_id:needForm.product_id,
-      quantity:Number(needForm.quantity),
-      note:needForm.note || null
-    })
-
+.insert({
+  branch:selectedBranch,
+  item_name:needForm.item_name.trim(),
+  quantity:Number(needForm.quantity),
+  unit:needForm.unit.trim() || 'adet',
+  note:needForm.note || null
+})
   if(error) return flash(error.message)
 
-  setNeedForm({product_id:'',quantity:1,note:''})
+  setNeedForm({
+  item_name:'',
+  quantity:1,
+  unit:'adet',
+  note:''
+})
   flash('İhtiyaç eklendi.')
   loadData()
 }
@@ -294,18 +304,21 @@ function flash(t){
   <h3>İhtiyaç Ekle</h3>
 
   <form onSubmit={addNeed}>
-    <select
-      value={needForm.product_id}
-      onChange={e=>setNeedForm({...needForm,product_id:e.target.value})}
-      required
-    >
-      <option value="">Ürün seç</option>
-      {products.map(p=>
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      )}
-    </select>
+   <input
+  type="text"
+  placeholder="Ürün adı"
+  value={needForm.item_name}
+  onChange={e=>setNeedForm({...needForm,item_name:e.target.value})}
+  required
+/>
+
+<input
+  type="text"
+  placeholder="Birim (adet, koli, paket, kg...)"
+  value={needForm.unit}
+  onChange={e=>setNeedForm({...needForm,unit:e.target.value})}
+  required
+/>
 
     <input
       type="number"
@@ -340,12 +353,12 @@ function flash(t){
         .filter(n=>n.branch===selectedBranch)
         .map(n=>
           <div className="productRow" key={n.id}>
-            <div>
-              <b>{n.products?.name || 'Ürün'}</b>
-              <small>
-                {n.quantity} adet
-                {n.note ? ` • ${n.note}` : ''}
-              </small>
+          <div>
+  <b>{n.item_name}</b>
+  <small>
+    {n.quantity} {n.unit}
+    {n.note ? ` • ${n.note}` : ''}
+  </small>
             </div>
           </div>
         )}
