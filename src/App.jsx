@@ -41,7 +41,16 @@ export default function App(){
     e.preventDefault(); setLoginError('')
     const {error}=await supabase.auth.signInWithPassword(login)
     if(error)setLoginError('E-posta veya şifre hatalı.')
-  }
+  }async function signUp(email,password){
+  const {data,error}=await supabase.auth.signUp({
+    email,
+    password
+  })
+
+  if(error) throw error
+
+  return data
+}
   async function signOut(){ await supabase.auth.signOut() }
 
   const totals=useMemo(()=>{
@@ -132,7 +141,7 @@ export default function App(){
 
   if(loading) return <div className="center">Yükleniyor…</div>
   if(!configured) return <SetupMissing />
-  if(!session) return <Login login={login} setLogin={setLogin} error={loginError} submit={signIn}/>
+  if(!session) return <Login login={login} setLogin={setLogin} error={loginError} submit={signIn} signUp={signUp}/>
 
   const expiryList=[...batches].sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
   return <div className="app">
@@ -183,7 +192,103 @@ export default function App(){
   </div>
 }
 
-function Login({login,setLogin,error,submit}){return <div className="login"><div className="brand"><img src="/icon.svg"/><h1>StokCep</h1><p>Stok ve son kullanma tarihi takibi</p></div><form onSubmit={submit}><label>E-posta<input type="email" required value={login.email} onChange={e=>setLogin({...login,email:e.target.value})}/></label><label>Şifre<input type="password" required value={login.password} onChange={e=>setLogin({...login,password:e.target.value})}/></label>{error&&<div className="error">{error}</div>}<button>Giriş yap</button></form></div>}
+function Login({login,setLogin,error,submit,signUp}){
+  const [register,setRegister]=useState(false)
+  const [registerError,setRegisterError]=useState('')
+  const [registerSuccess,setRegisterSuccess]=useState('')
+  const [busy,setBusy]=useState(false)
+
+  async function handleSubmit(e){
+    if(!register){
+      return submit(e)
+    }
+
+    e.preventDefault()
+    setRegisterError('')
+    setRegisterSuccess('')
+
+    if(!login.email || !login.password){
+      return setRegisterError('E-posta ve şifre gerekli.')
+    }
+
+    if(login.password.length < 6){
+      return setRegisterError('Şifre en az 6 karakter olmalı.')
+    }
+
+    setBusy(true)
+
+    try{
+      const data=await signUp(login.email,login.password)
+
+      if(data?.session){
+        setRegisterSuccess('Hesabın oluşturuldu.')
+      }else{
+        setRegisterSuccess('Hesabın oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.')
+      }
+
+      setRegister(false)
+    }catch(e){
+      setRegisterError(
+        e.message?.includes('Database error')
+          ? 'Bu e-posta adresinin kayıt izni yok veya hesap zaten mevcut.'
+          : e.message
+      )
+    }finally{
+      setBusy(false)
+    }
+  }
+
+  return <div className="login">
+    <div className="brand">
+      <img src="/icon.svg"/>
+      <h1>StokCep</h1>
+      <p>Ortak stok takibi</p>
+    </div>
+
+    <form onSubmit={handleSubmit}>
+      <h2>{register ? 'Kayıt Ol' : 'Giriş Yap'}</h2>
+
+      <input
+        type="email"
+        placeholder="E-posta"
+        value={login.email}
+        onChange={e=>setLogin({...login,email:e.target.value})}
+        required
+      />
+
+      <input
+        type="password"
+        placeholder="Şifre"
+        value={login.password}
+        onChange={e=>setLogin({...login,password:e.target.value})}
+        required
+      />
+
+      {(registerError || error) &&
+        <p className="error">{registerError || error}</p>
+      }
+
+      {registerSuccess &&
+        <p>{registerSuccess}</p>
+      }
+
+      <button type="submit" disabled={busy}>
+        {busy ? 'Bekleyin...' : register ? 'Hesap Oluştur' : 'Giriş Yap'}
+      </button>
+
+      <button
+        type="button"
+        className="secondary"
+        onClick={()=>{
+          setRegister(!register)
+          setRegisterError('')
+        }}
+      >
+        {register ? 'Giriş ekranına dön' : 'Kayıt Ol'}
+      </button>
+    </form>
+  </div>
+}
 function SetupMissing(){return <div className="login"><div className="brand"><img src="/icon.svg"/><h1>StokCep hazır</h1><p>Bağlantı bilgileri henüz girilmemiş. Paketteki KURULUM.md dosyasındaki adımları tamamla.</p></div></div>}
 function Stat({n,t,warn,danger}){return <div className={'stat '+(warn?'warn ':'')+(danger?'danger':'')}><strong>{n}</strong><span>{t}</span></div>}
 function Empty({text}){return <div className="empty">{text}</div>}
