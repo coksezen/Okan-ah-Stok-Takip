@@ -305,12 +305,35 @@ function flash(t){
     if(error)return flash(error.message)
     setModal(null);await loadData();flash('Ürün güncellendi.')
   }
-  async function addBatch(e){
-    e.preventDefault()
-    if(!batchForm.expiry_date) return flash('Son kullanma tarihi gerekli.')
-    const {error}=await supabase.from('batches').insert({product_id:productForm.id,...batchForm,quantity:Number(batchForm.quantity),created_by:session.user.id})
-    if(error)return flash(error.message)
-    setBatchForm(emptyBatch); await loadData(); flash('Parti eklendi.')
+ async function addBatch(e){
+  e.preventDefault()
+
+  if(!batchForm.expiry_date)
+    return flash('Son kullanma tarihi gerekli.')
+
+  const branch =
+    profile?.role === 'branch'
+      ? profile.branch
+      : selectedBranch
+
+  if(!branch)
+    return flash('Şube belirlenemedi.')
+
+  const {error}=await supabase
+    .from('batches')
+    .insert({
+      product_id:productForm.id,
+      ...batchForm,
+      branch,
+      quantity:Number(batchForm.quantity)
+    })
+
+  if(error) return flash(error.message)
+
+  setBatchForm(emptyBatch)
+  await loadData()
+  flash('Parti eklendi.')
+}
   }
   async function changeQty(batch,delta){
     const next=Math.max(0,Number(batch.quantity)+delta)
