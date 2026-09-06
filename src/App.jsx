@@ -917,23 +917,25 @@ setRegisterSuccess('Hesabın oluşturuldu. Şimdi giriş yapabilirsin.')
     <form onSubmit={handleSubmit}>
       <h2>{register ? 'Kayıt Ol' : 'Giriş Yap'}</h2>
 
-      <input
-        type="email"
-        autoComplete="username"
-        placeholder="E-posta"
-        value={login.email}
-        onChange={e=>setLogin({...login,email:e.target.value})}
-        required
-      />
+   <input
+  type="email"
+  name="username"
+  autoComplete="username"
+  placeholder="E-posta"
+  value={login.email}
+  onChange={e=>setLogin({...login,email:e.target.value})}
+  required
+/>
 
-      <input
-        type="password"
-        autoComplete={register ? "new-password" : "current-password"}
-        placeholder="Şifre"
-        value={login.password}
-        onChange={e=>setLogin({...login,password:e.target.value})}
-        required
-      />
+     <input
+  type="password"
+  name="password"
+  autoComplete={register ? "new-password" : "current-password"}
+  placeholder="Şifre"
+  value={login.password}
+  onChange={e=>setLogin({...login,password:e.target.value})}
+  required
+/>
 
       {(registerError || error) &&
         <p className="error">{registerError || error}</p>
