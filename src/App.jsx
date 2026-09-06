@@ -82,6 +82,61 @@ async function addNeed(e){
   flash('İhtiyaç eklendi.')
   loadData()
 }
+  async function partialNeed(id,currentQty){
+  const value = prompt(`Kaç adet teslim edildi? Mevcut ihtiyaç: ${currentQty}`)
+  if(value===null) return
+
+  const delivered = Number(value)
+
+  if(!delivered || delivered <= 0){
+    return flash('Geçerli bir miktar gir.')
+  }
+
+  if(delivered >= Number(currentQty)){
+    return completeNeed(id)
+  }
+
+  const remaining = Number(currentQty) - delivered
+
+  const {error}=await supabase
+    .from('branch_needs')
+    .update({quantity:remaining})
+    .eq('id',id)
+
+  if(error) return flash(error.message)
+
+  flash(`Teslim kaydedildi. Kalan: ${remaining}`)
+  loadData()
+}
+
+async function completeNeed(id){
+  const ok = confirm('Bu ihtiyaç tamamen karşılandı mı?')
+  if(!ok) return
+
+  const {error}=await supabase
+    .from('branch_needs')
+    .delete()
+    .eq('id',id)
+
+  if(error) return flash(error.message)
+
+  flash('İhtiyaç tamamlandı.')
+  loadData()
+}
+  async function deleteNeed(id){
+  const ok = confirm('Bu ihtiyaç listeden silinsin mi?')
+  if(!ok) return
+
+  const {error}=await supabase
+    .from('branch_needs')
+    .delete()
+    .eq('id',id)
+
+  if(error) return flash(error.message)
+
+  flash('İhtiyaç listeden silindi.')
+  loadData()
+}
 async function sendNeedsList(){
   if(!selectedBranch) return
 
@@ -382,15 +437,39 @@ function flash(t){
       {needs
         .filter(n=>n.branch===selectedBranch)
         .map(n=>
-          <div className="productRow" key={n.id}>
-          <div>
-  <b>{n.item_name}</b>
-  <small>
-    {n.quantity} {n.unit}
-    {n.note ? ` • ${n.note}` : ''}
-  </small>
-            </div>
-          </div>
+         <div className="productRow" key={n.id}>
+  <div>
+    <b>{n.item_name}</b>
+    <small>
+      {n.quantity} {n.unit}
+      {n.note ? ` • ${n.note}` : ''}
+    </small>
+  </div>
+
+  <div>
+    <button
+      type="button"
+      onClick={()=>partialNeed(n.id,n.quantity)}
+    >
+      Kısmi Teslim
+    </button>
+
+    <button
+      type="button"
+      onClick={()=>completeNeed(n.id)}
+    >
+      Tamamlandı
+    </button>
+
+    <button
+      type="button"
+      className="secondary"
+     onClick={()=>deleteNeed(n.id)}
+    >
+      Sil
+    </button>
+  </div>
+</div>
         )}
     </div>
   )}
