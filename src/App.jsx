@@ -56,9 +56,10 @@ async function loadData(){
   setNeeds(n||[])
   setProfile(pr||null)
 
-  if(pr?.role==='branch' && pr?.branch){
-    setSelectedBranch(pr.branch)
-  }
+ if(pr?.role==='branch' && pr?.branch){
+  setSelectedBranch(pr.branch)
+  setTab('needs')
+}
 }
 
 async function addNeed(e){
@@ -338,7 +339,7 @@ function flash(t){
         <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
       </>}
       {tab==='needs' && <>
-  {!selectedBranch ? <>
+ {profile?.role==='admin' && !selectedBranch ? <>
     <div className="sectionTitle">
       <h1>İhtiyaçlar</h1>
     </div>
@@ -454,6 +455,7 @@ function flash(t){
     </small>
   </div>
 
+{profile?.role==='admin' && (
   <div>
     <button
       type="button"
@@ -472,11 +474,12 @@ function flash(t){
     <button
       type="button"
       className="secondary"
-     onClick={()=>deleteNeed(n.id)}
+      onClick={()=>deleteNeed(n.id)}
     >
       Sil
     </button>
   </div>
+)}
 </div>
         )}
     </div>
@@ -513,7 +516,36 @@ function flash(t){
         <div className="card"><h3>Hesap</h3><p>{session.user.email}</p><button className="secondary" onClick={signOut}>Çıkış yap</button></div>
       </>}
     </main>
-    <nav>{[['home',Boxes,'Ana Sayfa'],['products',Search,'Ürünler'],['needs',ClipboardList,'İhtiyaçlar'],['expiry',CalendarDays,'SKT'],['settings',Settings,'Ayarlar']].map(([k,I,t])=><button key={k} className={tab===k?'active':''} onClick={()=>setTab(k)}><I size={21}/><span>{t}</span></button>)}</nav>
+    {profile?.role === 'admin' ? (
+  <nav>
+    {[
+      ['home',Boxes,'Ana Sayfa'],
+      ['products',Search,'Ürünler'],
+      ['needs',ClipboardList,'İhtiyaçlar'],
+      ['expiry',CalendarDays,'SKT'],
+      ['settings',Settings,'Ayarlar']
+    ].map(([id,Icon,label])=>
+      <button
+        key={id}
+        className={tab===id?'active':''}
+        onClick={()=>setTab(id)}
+      >
+        <Icon size={22}/>
+        <span>{label}</span>
+      </button>
+    )}
+  </nav>
+) : (
+  <nav>
+    <button
+      className="active"
+      onClick={()=>setTab('needs')}
+    >
+      <ClipboardList size={22}/>
+      <span>İhtiyaçlar</span>
+    </button>
+  </nav>
+)}
     {message&&<div className="toast">{message}</div>}
     {scanner&&<div className="scanner"><button className="close" onClick={()=>{scannerControls.current?.stop();setScanner(false)}}><X/></button><video ref={videoRef}/><div className="frame"></div><p>Barkodu çerçevenin içine getir</p></div>}
     {modal&&<Modal close={()=>setModal(null)}>
@@ -608,7 +640,7 @@ function Login({login,setLogin,error,submit,signUp}){
       </button>
 
       <button
-        type="button"
+        type="button"       
         className="secondary"
         onClick={()=>{
           setRegister(!register)
