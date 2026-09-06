@@ -218,6 +218,23 @@ async function markGroupPickedUp(ids){
   flash('Depodan alındı olarak işaretlendi.')
   loadData()
 }
+  async function markNeedDelivered(ids){
+  const ok=confirm('Bu ürün ilgili kantine teslim edildi mi?')
+  if(!ok) return
+
+  const {error}=await supabase
+    .from('branch_needs')
+    .update({
+      delivered:true,
+      delivered_at:new Date().toISOString()
+    })
+    .in('id',ids)
+
+  if(error) return flash(error.message)
+
+  flash('Teslim edildi olarak işaretlendi.')
+  loadData()
+}
 async function completeNeed(id){
   const ok = confirm('Bu ihtiyaç tamamen karşılandı mı?')
   if(!ok) return
@@ -491,6 +508,7 @@ const groupedNeeds=Object.values(
         unit,
         total:0,
         branches:{},
+        branchRows:{},
         ids:[],
         allPickedUp:true
       }
@@ -500,6 +518,11 @@ const groupedNeeds=Object.values(
 
     acc[key].total+=qty
     acc[key].branches[n.branch]=(acc[key].branches[n.branch] || 0)+qty
+    if(!acc[key].branchRows[n.branch]){
+  acc[key].branchRows[n.branch]=[]
+}
+
+acc[key].branchRows[n.branch].push(n)
     acc[key].ids.push(n.id)
 
     if(!n.picked_up){
@@ -508,6 +531,10 @@ const groupedNeeds=Object.values(
 
     return acc
   },{})
+).filter(g=>
+  Object.values(g.branchRows).some(rows=>
+    rows.some(r=>!r.delivered)
+  )
 )
   return <div className="app">
     <header><div><b>StokCep</b><small>Ortak stok takibi</small></div><button className="icon" onClick={signOut}><LogOut size={20}/></button></header>
@@ -567,11 +594,33 @@ const groupedNeeds=Object.values(
       Toplam: {g.total} {g.unit}
     </small>
 
-    {Object.entries(g.branches).map(([branch,qty])=>(
-      <small key={branch}>
+  {Object.entries(g.branches).map(([branch,qty])=>{
+  const rows=g.branchRows[branch] || []
+  const allDelivered=rows.length>0 && rows.every(r=>r.delivered)
+
+  return (
+    <div key={branch}>
+      <small>
         {branchLabels[branch] || branch}: {qty} {g.unit}
       </small>
-    ))}
+
+      {g.allPickedUp && (
+        allDelivered ? (
+          <button type="button" className="secondary" disabled>
+            ✓ Teslim Edildi
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={()=>markNeedDelivered(rows.map(r=>r.id))}
+          >
+            Teslim Ettim
+          </button>
+        )
+      )}
+    </div>
+  )
+})}
   </div>
 
   {g.allPickedUp ? (
