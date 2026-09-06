@@ -82,7 +82,32 @@ async function addNeed(e){
   flash('İhtiyaç eklendi.')
   loadData()
 }
+async function sendNeedsList(){
+  if(!selectedBranch) return
 
+  const count = needs.filter(n=>n.branch===selectedBranch).length
+
+  if(count===0){
+    return flash('Gönderilecek ihtiyaç yok.')
+  }
+
+  try{
+    const {data,error}=await supabase.functions.invoke(
+      'send-needs-notification',
+      {
+        body:{
+          branch:selectedBranch
+        }
+      }
+    )
+
+    if(error) throw error
+
+    flash(`Liste yöneticilere gönderildi. ${data?.sent ?? 0} cihaza bildirim gitti.`)
+  }catch(e){
+    flash(`Bildirim hatası: ${e.message}`)
+  }
+}
 function flash(t){
   setMessage(t)
   setTimeout(()=>setMessage(''),3500)
@@ -344,7 +369,12 @@ function flash(t){
 
 <div className="card">
   <h3>İhtiyaç Listesi</h3>
-
+<button
+  type="button"
+  onClick={sendNeedsList}
+>
+  Listeyi Gönder
+</button>
   {needs.filter(n=>n.branch===selectedBranch).length===0 ? (
     <p>Henüz ihtiyaç eklenmedi.</p>
   ) : (
