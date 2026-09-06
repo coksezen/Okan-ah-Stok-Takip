@@ -810,7 +810,7 @@ function flash(t){
     {modal&&<Modal close={()=>setModal(null)}>
       {modal==='new'?<ProductForm title="Yeni ürün" form={productForm} setForm={setProductForm} batch={batchForm} setBatch={setBatchForm} submit={saveNew} scan={()=>startScanner('new')} isNew/>:
       <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>b.product_id===productForm.id)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
-    </Modal>}
+    </Modal>
   </div>
 }
 
