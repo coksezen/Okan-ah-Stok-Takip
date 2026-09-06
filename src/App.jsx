@@ -17,6 +17,7 @@ export default function App(){
   const [modal,setModal]=useState(null), [productForm,setProductForm]=useState(emptyProduct), [batchForm,setBatchForm]=useState(emptyBatch)
   const [selectedBranch,setSelectedBranch]=useState(null)
   const [needs,setNeeds]=useState([])
+  const [profile,setProfile]=useState(null)
 const [needForm,setNeedForm]=useState({
   item_name:'',
   quantity:1,
@@ -39,18 +40,25 @@ async function loadData(){
   const [
     {data:p,error:pe},
     {data:b,error:be},
-    {data:n,error:ne}
+    {data:n,error:ne},
+    {data:pr,error:pre}
   ] = await Promise.all([
     supabase.from('products').select('*').order('name'),
     supabase.from('batches').select('*,products(name,barcode,unit)').order('expiry_date'),
-    supabase.from('branch_needs').select('*,products(name,barcode,unit)').order('created_at',{ascending:false})
+    supabase.from('branch_needs').select('*').order('created_at',{ascending:false}),
+    supabase.from('user_profiles').select('*').eq('user_id',session.user.id).single()
   ])
 
-  if(pe||be||ne) return flash((pe||be||ne).message)
+  if(pe||be||ne||pre) return flash((pe||be||ne||pre).message)
 
   setProducts(p||[])
   setBatches(b||[])
   setNeeds(n||[])
+  setProfile(pr||null)
+
+  if(pr?.role==='branch' && pr?.branch){
+    setSelectedBranch(pr.branch)
+  }
 }
 
 async function addNeed(e){
