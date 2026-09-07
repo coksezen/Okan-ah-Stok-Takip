@@ -11,6 +11,7 @@ const fmt = d => d ? new Intl.DateTimeFormat('tr-TR').format(new Date(d+'T12:00:
 
 export default function App(){
   const [session,setSession]=useState(null), [loading,setLoading]=useState(true)
+  const [showSplash,setShowSplash]=useState(true)
   const [tab,setTab]=useState(new URLSearchParams(location.search).get('tab') || 'home')
   const [products,setProducts]=useState([]), [batches,setBatches]=useState([]), [query,setQuery]=useState('')
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
@@ -40,7 +41,13 @@ const [needForm,setNeedForm]=useState({
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s))
     return ()=>subscription.unsubscribe()
   },[])
+useEffect(()=>{
+  const timer=setTimeout(()=>{
+    setShowSplash(false)
+  },2300)
 
+  return ()=>clearTimeout(timer)
+},[])
   useEffect(()=>{ if(session) loadData() },[session])
   useEffect(()=>()=>scannerControls.current?.stop(),[])
 async function loadData(){
@@ -262,6 +269,33 @@ async function completeNeed(id){
   if(error) return flash(error.message)
 
   flash('İhtiyaç listeden silindi.')
+  loadData()
+}
+  async function finishNeedsList(){
+  if(!selectedBranch)
+    return flash('Önce şube seçmelisin.')
+
+  const branchNeeds=needs.filter(n=>n.branch===selectedBranch)
+
+  if(!branchNeeds.length)
+    return flash('Liste zaten boş.')
+
+  const unfinished=branchNeeds.filter(n=>!n.completed)
+
+  const text=unfinished.length
+    ? `Listede ${unfinished.length} alınmamış ürün var. Yine de listeyi bitirip tamamını silmek istiyor musun?`
+    : 'Tüm ürünler alındı. Liste bitirilip temizlensin mi?'
+
+  if(!confirm(text)) return
+
+  const {error}=await supabase
+    .from('branch_needs')
+    .delete()
+    .eq('branch',selectedBranch)
+
+  if(error) return flash(error.message)
+
+  flash('Liste tamamlandı ve temizlendi.')
   loadData()
 }
 async function sendNeedsList(){
@@ -517,7 +551,50 @@ if(!p){
     flash(`Test bildirimi hatası: ${e.message}`)
   }
 }
+if(showSplash) return (
+  <div
+    style={{
+      minHeight:'100vh',
+      display:'flex',
+      flexDirection:'column',
+      alignItems:'center',
+      justifyContent:'center',
+      background:'#0f172a',
+      color:'white',
+      textAlign:'center',
+      padding:'24px'
+    }}
+  >
+    <img
+      src="/icon.svg"
+      alt="Okan-Şah Gıda"
+      style={{
+        width:'90px',
+        height:'90px',
+        marginBottom:'24px'
+      }}
+    />
 
+    <h1
+      style={{
+        fontSize:'34px',
+        margin:'0 0 8px'
+      }}
+    >
+      Okan-Şah Gıda
+    </h1>
+
+    <p
+      style={{
+        margin:0,
+        fontSize:'16px',
+        opacity:.7
+      }}
+    >
+      Stok ve Kantin Yönetimi
+    </p>
+  </div>
+)
   if(loading) return <div className="center">Yükleniyor…</div>
   if(!configured) return <SetupMissing />
   if(!session) return <Login login={login} setLogin={setLogin} error={loginError} submit={signIn} signUp={signUp}/>
@@ -817,19 +894,31 @@ acc[key].branchRows[n.branch].push(n)
 
 {profile?.role==='admin' && (
   <div>
-    <button
-      type="button"
-      onClick={()=>partialNeed(n.id,n.quantity)}
-    >
-      Kısmi Teslim
-    </button>
+    {n.completed ? (
+      <button
+        type="button"
+        className="secondary"
+        disabled
+      >
+        ✓ ALINDI
+      </button>
+    ) : (
+      <>
+        <button
+          type="button"
+          onClick={()=>partialNeed(n.id,n.quantity)}
+        >
+          Kısmi Teslim
+        </button>
 
-    <button
-      type="button"
-      onClick={()=>completeNeed(n.id)}
-    >
-      Tamamlandı
-    </button>
+        <button
+          type="button"
+          onClick={()=>completeNeed(n.id)}
+        >
+          Tamamlandı
+        </button>
+      </>
+    )}
 
     <button
       type="button"
@@ -842,6 +931,16 @@ acc[key].branchRows[n.branch].push(n)
 )}
 </div>
         )}
+      {profile?.role==='admin' &&
+  needs.some(n=>n.branch===selectedBranch) && (
+    <button
+      type="button"
+      onClick={finishNeedsList}
+      style={{marginTop:'16px'}}
+    >
+      ✓ Listeyi Bitir
+    </button>
+)}
     </div>
   )}
 </div>
