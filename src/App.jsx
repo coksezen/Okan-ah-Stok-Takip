@@ -16,6 +16,7 @@ export default function App(){
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
   const [modal,setModal]=useState(null), [productForm,setProductForm]=useState(emptyProduct), [batchForm,setBatchForm]=useState(emptyBatch)
   const [selectedBranch,setSelectedBranch]=useState(null)
+  const [productBranch,setProductBranch]=useState(null)
   const [needs,setNeeds]=useState([])
   const [profile,setProfile]=useState(null)
   const [allowedUsers,setAllowedUsers]=useState([])
