@@ -315,23 +315,77 @@ function flash(t){
     const expired=batches.filter(b=>daysLeft(b.expiry_date)<0).length
     return {qty,near,expired}
   },[batches])
-  const productQty=id=>batches.filter(b=>b.product_id===id).reduce((a,b)=>a+Number(b.quantity||0),0)
+ const productQty=id=>batches
+  .filter(b=>
+    b.product_id===id &&
+    b.branch===(profile?.role==='branch' ? profile.branch : productBranch)
+  )
+  .reduce((a,b)=>a+Number(b.quantity||0),0)
   const filtered=products.filter(p=>(p.name+' '+(p.barcode||'')+' '+(p.category||'')).toLowerCase().includes(query.toLowerCase()))
 
   function openNew(barcode=''){ setProductForm({...emptyProduct,barcode}); setBatchForm(emptyBatch); setModal('new') }
   function openProduct(p){ setProductForm({...p}); setBatchForm(emptyBatch); setModal('product') }
+async function saveNew(e){
+  e.preventDefault()
 
-  async function saveNew(e){
-    e.preventDefault()
-    if(!productForm.name.trim()) return flash('Ürün adı gerekli.')
-    const {data:p,error}=await supabase.from('products').insert({...productForm,created_by:session.user.id}).select().single()
-    if(error) return flash(error.message.includes('duplicate')?'Bu barkod zaten kayıtlı.':error.message)
-    if(batchForm.expiry_date || batchForm.lot_no || Number(batchForm.quantity)>0){
-      const {error:be}=await supabase.from('batches').insert({product_id:p.id,...batchForm,quantity:Number(batchForm.quantity),created_by:session.user.id})
-      if(be) return flash(be.message)
-    }
-    setModal(null); await loadData(); flash('Ürün eklendi.')
+  if(!productForm.name.trim())
+    return flash('Ürün adı gerekli.')
+
+  const branch =
+    profile?.role==='branch'
+      ? profile.branch
+      : productBranch
+
+  if(!branch)
+    return flash('Önce üniversite seçmelisin.')
+  let p=null
+
+const barcode=productForm.barcode?.trim() || null
+
+if(barcode){
+  const {data:existing,error:findError}=await supabase
+    .from('products')
+    .select('*')
+    .eq('barcode',barcode)
+    .maybeSingle()
+
+  if(findError) return flash(findError.message)
+
+  if(existing){
+    p=existing
   }
+}
+
+if(!p){
+  const {data:newProduct,error:productError}=await supabase
+    .from('products')
+    .insert({
+      ...productForm,
+      barcode,
+      created_by:session.user.id
+    })
+    .select()
+    .single()
+
+  if(productError) return flash(productError.message)
+
+  p=newProduct
+}
+  const {error:be}=await supabase
+    .from('batches')
+    .insert({
+      product_id:p.id,
+      ...batchForm,
+      branch,
+      quantity:Number(batchForm.quantity)
+    })
+
+  if(be) return flash(be.message)
+
+  setModal(null)
+  await loadData()
+  flash('Ürün stoğa eklendi.')
+}
   async function updateProduct(e){
     e.preventDefault()
     const {error}=await supabase.from('products').update({name:productForm.name,barcode:productForm.barcode||null,category:productForm.category,unit:productForm.unit,notes:productForm.notes,min_stock:Number(productForm.min_stock||0)}).eq('id',productForm.id)
@@ -347,7 +401,7 @@ function flash(t){
   const branch =
     profile?.role === 'branch'
       ? profile.branch
-      : selectedBranch
+      : productBranch
 
   if(!branch)
     return flash('Şube belirlenemedi.')
@@ -792,11 +846,114 @@ acc[key].branchRows[n.branch].push(n)
 </div>
   </>}
 </>}
-      {tab==='products' && <>
-        <div className="sectionTitle"><h1>Ürünler</h1><button onClick={()=>openNew()}><Plus size={18}/> Ürün ekle</button></div>
-        <div className="search"><Search size={18}/><input placeholder="Ürün veya barkod ara" value={query} onChange={e=>setQuery(e.target.value)}/><button className="scanmini" onClick={()=>startScanner('find')}><Barcode size={20}/></button></div>
-        <div className="list">{filtered.map(p=><button className="productRow" key={p.id} onClick={()=>openProduct(p)}><div><b>{p.name}</b><small>{p.barcode||'Barkod yok'} · {p.category||'Kategori yok'}</small></div><strong>{productQty(p.id)} {p.unit}</strong></button>)}{!filtered.length&&<Empty text="Ürün bulunamadı."/>}</div>
-      </>}
+    {tab==='products' && <>
+  {profile?.role==='admin' && !productBranch ? (
+    <>
+      <div className="sectionTitle">
+        <h1>Üniversite Seç</h1>
+      </div>
+
+      <div className="list">
+        <button
+          className="productRow"
+          onClick={()=>setProductBranch('veteriner')}
+        >
+          <div>
+            <b>Veteriner Fakültesi</b>
+            <small>Stokları görüntüle</small>
+          </div>
+        </button>
+
+        <button
+          className="productRow"
+          onClick={()=>setProductBranch('iktisat')}
+        >
+          <div>
+            <b>İktisat Fakültesi</b>
+            <small>Stokları görüntüle</small>
+          </div>
+        </button>
+
+        <button
+          className="productRow"
+          onClick={()=>setProductBranch('suna_uzal')}
+        >
+          <div>
+            <b>Suna UZAL</b>
+            <small>Stokları görüntüle</small>
+          </div>
+        </button>
+
+        <button
+          className="productRow"
+          onClick={()=>setProductBranch('uso')}
+        >
+          <div>
+            <b>USO</b>
+            <small>Stokları görüntüle</small>
+          </div>
+        </button>
+      </div>
+    </>
+  ) : (
+    <>
+      <div className="sectionTitle">
+        <h1>
+          {(profile?.role==='branch' ? profile.branch : productBranch)==='veteriner'
+            ? 'Veteriner Fakültesi'
+            : (profile?.role==='branch' ? profile.branch : productBranch)==='iktisat'
+              ? 'İktisat Fakültesi'
+              : (profile?.role==='branch' ? profile.branch : productBranch)==='suna_uzal'
+                ? 'Suna UZAL'
+                : 'USO'} Stokları
+        </h1>
+
+        {profile?.role==='admin' && (
+          <button
+            className="secondary"
+            onClick={()=>setProductBranch(null)}
+          >
+            Üniversite Değiştir
+          </button>
+        )}
+      </div>
+
+      <button onClick={()=>openNew()}>
+        <Plus size={18}/> Ürün Ekle
+      </button>
+
+      <div className="search">
+        <Search size={18}/>
+        <input
+          placeholder="Ürün veya barkod ara"
+          value={query}
+          onChange={e=>setQuery(e.target.value)}
+        />
+      </div>
+
+      <div className="list">
+        {filtered
+          .filter(p=>batches.some(b=>
+            b.product_id===p.id &&
+            b.branch===(profile?.role==='branch' ? profile.branch : productBranch)
+          ))
+          .map(p=>
+            <button
+              className="productRow"
+              key={p.id}
+              onClick={()=>openProduct(p)}
+            >
+              <div>
+                <b>{p.name}</b>
+                <small>{p.barcode || 'Barkod yok'}</small>
+              </div>
+            </button>
+          )
+        }
+      </div>
+    </>
+  )}
+</>}
     {tab==='expiry' && <>
   <div className="sectionTitle">
     <h1>SKT Takibi</h1>
@@ -1007,7 +1164,10 @@ acc[key].branchRows[n.branch].push(n)
     {scanner&&<div className="scanner"><button className="close" onClick={()=>{scannerControls.current?.stop();setScanner(false)}}><X/></button><video ref={videoRef}/><div className="frame"></div><p>Barkodu çerçevenin içine getir</p></div>}
     {modal&&<Modal close={()=>setModal(null)}>
       {modal==='new'?<ProductForm title="Yeni ürün" form={productForm} setForm={setProductForm} batch={batchForm} setBatch={setBatchForm} submit={saveNew} scan={()=>startScanner('new')} isNew/>:
-      <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>b.product_id===productForm.id)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
+      <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>
+  b.product_id===productForm.id &&
+  b.branch===(profile?.role==='branch' ? profile.branch : productBranch)
+)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
     </Modal>}
   </div>
 }
@@ -1114,5 +1274,83 @@ function Stat({n,t,warn,danger}){return <div className={'stat '+(warn?'warn ':''
 function Empty({text}){return <div className="empty">{text}</div>}
 function BatchRow({b}){const d=daysLeft(b.expiry_date);return <div className="batchRow"><div><b>{b.products?.name||'Ürün'}</b><small>{b.lot_no?`Lot: ${b.lot_no} · `:''}{b.quantity} {b.products?.unit||'adet'} · {fmt(b.expiry_date)}</small></div><span className={d<0?'pill red':d<=10?'pill orange':'pill'}>{d<0?`${Math.abs(d)} gün geçti`:d===0?'Bugün':`${d} gün`}</span></div>}
 function Modal({children,close}){return <div className="overlay" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div className="modal"><button className="closeModal" onClick={close}><X/></button>{children}</div></div>}
-function ProductForm({title,form,setForm,batch,setBatch,submit,scan,isNew}){return <form onSubmit={submit}><h2>{title}</h2><label>Ürün adı<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Barkod<div className="inline"><input value={form.barcode||''} onChange={e=>setForm({...form,barcode:e.target.value})}/>{scan&&<button type="button" className="secondary" onClick={scan}><Barcode size={18}/></button>}</div></label><div className="grid2"><label>Kategori<input value={form.category||''} onChange={e=>setForm({...form,category:e.target.value})}/></label><label>Birim<select value={form.unit||'adet'} onChange={e=>setForm({...form,unit:e.target.value})}><option>adet</option><option>kutu</option><option>şişe</option><option>paket</option><option>ml</option></select></label></div><label>Minimum stok<input type="number" min="0" value={form.min_stock||0} onChange={e=>setForm({...form,min_stock:e.target.value})}/></label><label>Not<textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})}/></label>{isNew&&<><h3>İlk parti</h3><div className="grid2"><label>Lot no<input value={batch.lot_no} onChange={e=>setBatch({...batch,lot_no:e.target.value})}/></label><label>Adet<input type="number" min="0" value={batch.quantity} onChange={e=>setBatch({...batch,quantity:e.target.value})}/></label></div><label>Son kullanma tarihi<input type="date" value={batch.expiry_date} onChange={e=>setBatch({...batch,expiry_date:e.target.value})}/></label></>}<button type="submit">Kaydet</button></form>}
+function ProductForm({title,form,setForm,batch,setBatch,submit,scan,isNew}){
+  return (
+    <form onSubmit={submit}>
+      <h2>{title}</h2>
+
+      <label>
+        Barkod
+        <div className="inline">
+          <input
+            value={form.barcode || ''}
+            onChange={e=>setForm({...form,barcode:e.target.value})}
+            placeholder="Barkod"
+          />
+          <button type="button" onClick={scan}>
+            <Barcode size={18}/> Okut
+          </button>
+        </div>
+      </label>
+
+      <label>
+        Ürün Adı
+        <input
+          value={form.name || ''}
+          onChange={e=>setForm({...form,name:e.target.value})}
+          placeholder="Ürün adı"
+          required
+        />
+      </label>
+
+      <label>
+        Miktar
+        <input
+          type="number"
+          min="1"
+          value={batch.quantity}
+          onChange={e=>setBatch({...batch,quantity:e.target.value})}
+          required
+        />
+      </label>
+
+      <label>
+        Birim
+        <select
+          value={form.unit || 'adet'}
+          onChange={e=>setForm({...form,unit:e.target.value})}
+        >
+          <option value="adet">Adet</option>
+          <option value="paket">Paket</option>
+          <option value="koli">Koli</option>
+          <option value="kg">Kg</option>
+          <option value="litre">Litre</option>
+        </select>
+      </label>
+
+      <label>
+        Son Kullanma Tarihi
+        <input
+          type="date"
+          value={batch.expiry_date || ''}
+          onChange={e=>setBatch({...batch,expiry_date:e.target.value})}
+          required
+        />
+      </label>
+
+      <label>
+        Not
+        <input
+          value={form.notes || ''}
+          onChange={e=>setForm({...form,notes:e.target.value})}
+          placeholder="İsteğe bağlı"
+        />
+      </label>
+
+      <button type="submit">
+        {isNew ? 'Stoğa Ekle' : 'Kaydet'}
+      </button>
+    </form>
+  )
+}
 function ProductDetail({product,setProduct,batches,batch,setBatch,update,addBatch,changeQty,deleteBatch,deleteProduct}){return <div><ProductForm title="Ürün bilgileri" form={product} setForm={setProduct} batch={batch} setBatch={setBatch} submit={update}/><hr/><h3>Partiler</h3><div className="list compact">{batches.map(b=><div className="manageBatch" key={b.id}><div><b>{fmt(b.expiry_date)}</b><small>{b.lot_no?`Lot ${b.lot_no}`:'Lot yok'}</small></div><div className="qty"><button className="secondary" onClick={()=>changeQty(b,-1)}><Minus size={16}/></button><strong>{b.quantity}</strong><button className="secondary" onClick={()=>changeQty(b,1)}><Plus size={16}/></button><button className="dangerBtn" onClick={()=>deleteBatch(b.id)}><Trash2 size={16}/></button></div></div>)}{!batches.length&&<Empty text="Bu üründe parti yok."/>}</div><form onSubmit={addBatch} className="addBatch"><h3>Yeni parti ekle</h3><div className="grid2"><label>Lot no<input value={batch.lot_no} onChange={e=>setBatch({...batch,lot_no:e.target.value})}/></label><label>Adet<input type="number" min="1" required value={batch.quantity} onChange={e=>setBatch({...batch,quantity:e.target.value})}/></label></div><label>Son kullanma tarihi<input type="date" required value={batch.expiry_date} onChange={e=>setBatch({...batch,expiry_date:e.target.value})}/></label><button>Parti ekle</button></form><button className="deleteProduct" onClick={()=>deleteProduct(product.id)}><Trash2 size={18}/> Ürünü sil</button></div>}
