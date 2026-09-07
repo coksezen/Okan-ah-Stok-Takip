@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Barcode, Bell, Boxes, CalendarDays, ClipboardList, LogOut, Minus, Plus, Search, Settings, Trash2, X } from 'lucide-react'
+import { Barcode, Bell, Boxes, CalendarDays, ClipboardList, Eye, EyeOff, LogOut, Minus, Plus, Search, Settings, Trash2, X } from 'lucide-react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase, configured } from './supabase'
 import { enableNotifications } from './notifications'
@@ -1177,6 +1177,7 @@ function Login({login,setLogin,error,submit,signUp}){
   const [registerError,setRegisterError]=useState('')
   const [registerSuccess,setRegisterSuccess]=useState('')
   const [busy,setBusy]=useState(false)
+  const [showPassword,setShowPassword]=useState(false)
 
   async function handleSubmit(e){
     if(!register){
@@ -1234,15 +1235,39 @@ setRegisterSuccess('Hesabın oluşturuldu. Şimdi giriş yapabilirsin.')
   required
 />
 
-     <input
-  type="password"
-  name="password"
-  autoComplete={register ? "new-password" : "current-password"}
-  placeholder="Şifre"
-  value={login.password}
-  onChange={e=>setLogin({...login,password:e.target.value})}
-  required
-/>
+    <div style={{position:'relative'}}>
+  <input
+    type={showPassword ? 'text' : 'password'}
+    name="password"
+    autoComplete={register ? "new-password" : "current-password"}
+    placeholder="Şifre"
+    value={login.password}
+    onChange={e=>setLogin({...login,password:e.target.value})}
+    required
+    style={{paddingRight:'48px'}}
+  />
+
+  <button
+    type="button"
+    onClick={()=>setShowPassword(!showPassword)}
+    aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+    style={{
+      position:'absolute',
+      right:'14px',
+      top:'50%',
+      transform:'translateY(-50%)',
+      background:'transparent',
+      border:'none',
+      padding:0,
+      width:'auto',
+      minWidth:0,
+      color:'#64748b',
+      cursor:'pointer'
+    }}
+  >
+    {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
+  </button>
+</div>
 
       {(registerError || error) &&
         <p className="error">{registerError || error}</p>
