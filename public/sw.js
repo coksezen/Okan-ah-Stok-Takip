@@ -1,6 +1,7 @@
-const CACHE = 'okan-sah-stok-v3'
+const CACHE = 'okan-sah-stok-v4'
 
 const START_FILES = [
+  '/',
   '/manifest.webmanifest',
   '/icon.svg'
 ]
@@ -35,25 +36,37 @@ self.addEventListener('fetch', event => {
   // Supabase ve diğer dış servisleri cache'e alma
   if(url.origin !== self.location.origin) return
 
-  // Sayfa açılışlarında her zaman önce güncel sürümü dene.
-  // İnternet yoksa son çalışan sayfayı cache'den aç.
   if(request.mode === 'navigate'){
+    const networkRequest = fetch(request)
+      .then(response => {
+        if(response && response.ok){
+          const copy = response.clone()
+          caches.open(CACHE).then(cache => cache.put('/', copy))
+        }
+        return response
+      })
+
+    // Wi-Fi bağlı görünüp internet cevabı gecikirse uygulamayı bekletme.
+    // 1.5 saniye içinde ağ dönmezse son çalışan sayfayı aç;
+    // ağ cevabı arkada gelirse cache yine güncellenir.
+    const fastFallback = new Promise(resolve => {
+      setTimeout(async () => {
+        const cached = await caches.match('/')
+        resolve(cached || networkRequest)
+      }, 1500)
+    })
+
     event.respondWith(
-      fetch(request)
-        .then(response => {
-          if(response && response.ok){
-            const copy = response.clone()
-            caches.open(CACHE).then(cache => cache.put('/', copy))
-          }
-          return response
-        })
+      Promise.race([networkRequest, fastFallback])
         .catch(() => caches.match('/'))
     )
+
+    event.waitUntil(networkRequest.catch(() => {}))
     return
   }
 
-  // Vite'ın hash'li JS/CSS dosyaları değişince isimleri de değişir.
-  // Bu yüzden bunları hızlı açmak için cache kullanabiliriz.
+  // Vite'ın hash'li JS/CSS dosyalarını hızlı aç.
+  // Yeni build'de dosya adları değiştiği için eski dosya yeni sürümü engellemez.
   event.respondWith(
     caches.match(request).then(cached => {
       if(cached) return cached
