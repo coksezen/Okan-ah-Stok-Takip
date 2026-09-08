@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/icon.svg" />
@@ -18,33 +19,42 @@
     body {
       margin: 0;
       padding: 0;
-      background: #ffffff;
+      background: #0f172a;
     }
 
     #startup {
+      position: fixed;
+      inset: 0;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       font-family: Arial, sans-serif;
-      background: #ffffff;
-      color: #0f172a;
+      background: #0f172a;
+      color: white;
+    }
+
+    #startup-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translateY(-65px);
     }
 
     #startup img {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 18px;
+      width: 90px;
+      height: 90px;
+      margin-bottom: 20px;
     }
 
     #startup strong {
-      font-size: 24px;
+      font-size: 32px;
       margin-bottom: 8px;
     }
 
     #startup span {
-      font-size: 14px;
+      font-size: 15px;
       opacity: 0.65;
     }
   </style>
@@ -53,11 +63,17 @@
 <body>
   <div id="root">
     <div id="startup">
-      <img src="/icon.svg" alt="StokCep" />
-      <strong>StokCep</strong>
-      <span>Yükleniyor...</span>
+      <div id="startup-inner">
+        <img src="/icon.svg" alt="Okan-Şah Gıda" />
+        <strong>Okan-Şah Gıda</strong>
+        <span>Stok ve Kantin Yönetimi</span>
+      </div>
     </div>
   </div>
+
+  <script>
+    window.__STOKCEP_START__ = Date.now()
+  </script>
 
   <script type="module" src="/src/main.jsx"></script>
 </body>
