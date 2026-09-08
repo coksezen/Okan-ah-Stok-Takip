@@ -792,7 +792,14 @@ acc[key].branchRows[n.branch].push(n)
   )
 )
   return <div className="app">
-    <header><div><b>StokCep</b><small>Ortak stok takibi</small></div><button className="icon" onClick={signOut}><LogOut size={20}/></button></header>
+    <header><div className="topBrand">
+  <img src="/icon.svg" alt="Okan-Şah Gıda" />
+
+  <div>
+    <b>Okan-Şah Gıda</b>
+    <small>Kantin & Stok Yönetimi</small>
+  </div>
+</div> <button className="icon" onClick={signOut}> <LogOut size={20}/></button></header>
    {expiryWarnings.length>0 && (
   <div className="card">
     <h3>⚠️ SKT Uyarıları</h3>
