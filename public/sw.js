@@ -1,7 +1,6 @@
-const CACHE = 'stokcep-v2'
+const CACHE = 'okan-sah-stok-v3'
 
 const START_FILES = [
-  '/',
   '/manifest.webmanifest',
   '/icon.svg'
 ]
@@ -17,13 +16,11 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys =>
-        Promise.all(
-          keys
-            .filter(key => key !== CACHE)
-            .map(key => caches.delete(key))
-        )
-      )
+      .then(keys => Promise.all(
+        keys
+          .filter(key => key !== CACHE)
+          .map(key => caches.delete(key))
+      ))
       .then(() => self.clients.claim())
   )
 })
@@ -35,29 +32,39 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url)
 
-  // Supabase ve diğer dış servisleri cache'e karıştırma
+  // Supabase ve diğer dış servisleri cache'e alma
   if(url.origin !== self.location.origin) return
 
-  event.respondWith(
-    caches.match(request).then(cached => {
-
-      const networkRequest = fetch(request)
+  // Sayfa açılışlarında her zaman önce güncel sürümü dene.
+  // İnternet yoksa son çalışan sayfayı cache'den aç.
+  if(request.mode === 'navigate'){
+    event.respondWith(
+      fetch(request)
         .then(response => {
           if(response && response.ok){
             const copy = response.clone()
-
-            caches.open(CACHE).then(cache => {
-              cache.put(request, copy)
-            })
+            caches.open(CACHE).then(cache => cache.put('/', copy))
           }
-
           return response
         })
-        .catch(() => cached || caches.match('/'))
+        .catch(() => caches.match('/'))
+    )
+    return
+  }
 
-      // Daha önce varsa anında cache'den aç,
-      // arkada güncel sürümü indir
-      return cached || networkRequest
+  // Vite'ın hash'li JS/CSS dosyaları değişince isimleri de değişir.
+  // Bu yüzden bunları hızlı açmak için cache kullanabiliriz.
+  event.respondWith(
+    caches.match(request).then(cached => {
+      if(cached) return cached
+
+      return fetch(request).then(response => {
+        if(response && response.ok){
+          const copy = response.clone()
+          caches.open(CACHE).then(cache => cache.put(request, copy))
+        }
+        return response
+      })
     })
   )
 })
@@ -67,7 +74,7 @@ self.addEventListener('push', event => {
 
   event.waitUntil(
     self.registration.showNotification(
-      data.title || 'StokCep',
+      data.title || 'Okan-Şah Gıda',
       {
         body: data.body || 'Yeni bir stok bildiriminiz var.',
         icon: '/icon.svg',
