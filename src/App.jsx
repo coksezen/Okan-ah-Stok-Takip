@@ -1546,4 +1546,111 @@ function ProductForm({title,form,setForm,batch,setBatch,submit,scan,isNew}){
     </form>
   )
 }
-function ProductDetail({product,setProduct,batches,batch,setBatch,update,addBatch,changeQty,deleteBatch,deleteProduct}){return <div><ProductForm title="Ürün bilgileri" form={product} setForm={setProduct} batch={batch} setBatch={setBatch} submit={update}/><hr/><h3>Partiler</h3><div className="list compact">{batches.map(b=><div className="manageBatch" key={b.id}><div><b>{fmt(b.expiry_date)}</b><small>{b.lot_no?`Lot ${b.lot_no}`:'Lot yok'}</small></div><div className="qty"><button className="secondary" onClick={()=>changeQty(b,-1)}><Minus size={16}/></button><strong>{b.quantity}</strong><button className="secondary" onClick={()=>changeQty(b,1)}><Plus size={16}/></button><button className="dangerBtn" onClick={()=>deleteBatch(b.id)}><Trash2 size={16}/></button></div></div>)}{!batches.length&&<Empty text="Bu üründe parti yok."/>}</div><form onSubmit={addBatch} className="addBatch"><h3>Yeni parti ekle</h3><div className="grid2"><label>Lot no<input value={batch.lot_no} onChange={e=>setBatch({...batch,lot_no:e.target.value})}/></label><label>Adet<input type="number" min="1" required value={batch.quantity} onChange={e=>setBatch({...batch,quantity:e.target.value})}/></label></div><label>Son kullanma tarihi<input type="date" required value={batch.expiry_date} onChange={e=>setBatch({...batch,expiry_date:e.target.value})}/></label><button>Parti ekle</button></form><button className="deleteProduct" onClick={()=>deleteProduct(product.id)}><Trash2 size={18}/> Ürünü sil</button></div>}
+function ProductDetail({
+  product,
+  setProduct,
+  batches,
+  batch,
+  setBatch,
+  update,
+  addBatch,
+  changeQty,
+  deleteBatch,
+  deleteProduct
+}){
+  return (
+    <div>
+      <ProductForm
+        title="Ürün bilgileri"
+        form={product}
+        setForm={setProduct}
+        batch={batch}
+        setBatch={setBatch}
+        submit={update}
+      />
+
+      <hr/>
+
+      <h3>SKT / Stoklar</h3>
+
+      <div className="list compact">
+        {batches.map(b=>(
+          <div className="manageBatch" key={b.id}>
+            <div>
+              <b>{fmt(b.expiry_date)}</b>
+            </div>
+
+            <div className="qty">
+              <button
+                className="secondary"
+                onClick={()=>changeQty(b,-1)}
+              >
+                <Minus size={16}/>
+              </button>
+
+              <strong>{b.quantity}</strong>
+
+              <button
+                className="secondary"
+                onClick={()=>changeQty(b,1)}
+              >
+                <Plus size={16}/>
+              </button>
+
+              <button
+                className="dangerBtn"
+                onClick={()=>deleteBatch(b.id)}
+              >
+                <Trash2 size={16}/>
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {!batches.length &&
+          <Empty text="Bu üründe SKT kaydı yok."/>
+        }
+      </div>
+
+      <form onSubmit={addBatch} className="addBatch">
+        <h3>Yeni SKT Ekle</h3>
+
+        <label>
+          Adet
+          <input
+            type="number"
+            min="1"
+            required
+            value={batch.quantity}
+            onChange={e=>setBatch({
+              ...batch,
+              quantity:e.target.value
+            })}
+          />
+        </label>
+
+        <label>
+          Son Kullanma Tarihi
+          <input
+            type="date"
+            required
+            value={batch.expiry_date}
+            onChange={e=>setBatch({
+              ...batch,
+              expiry_date:e.target.value
+            })}
+          />
+        </label>
+
+        <button>SKT Ekle</button>
+      </form>
+
+      <button
+        className="deleteProduct"
+        onClick={()=>deleteProduct(product.id)}
+      >
+        <Trash2 size={18}/> Ürünü Sil
+      </button>
+    </div>
+  )
+}
