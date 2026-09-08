@@ -50,12 +50,18 @@ const [needForm,setNeedForm]=useState({
     return ()=>subscription.unsubscribe()
   },[])
 useEffect(()=>{
+  if(loading) return
+
+  const startedAt=window.__STOKCEP_START__ || Date.now()
+  const elapsed=Date.now()-startedAt
+  const remaining=Math.max(0,2300-elapsed)
+
   const timer=setTimeout(()=>{
     setShowSplash(false)
-  },2300)
+  },remaining)
 
   return ()=>clearTimeout(timer)
-},[])
+},[loading])
   useEffect(()=>{ if(session) loadData() },[session])
   useEffect(()=>()=>scannerControls.current?.stop(),[])
 async function loadData(){
