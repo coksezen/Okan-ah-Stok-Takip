@@ -320,19 +320,23 @@ async function markGroupPickedUp(ids){
   flash('Teslim edildi olarak işaretlendi.')
   loadData()
 }
-async function completeNeed(id){
-  const ok = confirm('Bu ihtiyaç tamamen karşılandı mı?')
+  async function completeNeed(id){
+  const ok=confirm('Bu ürün alındı olarak işaretlensin mi?')
   if(!ok) return
 
   const {error}=await supabase
     .from('branch_needs')
-    .delete()
+    .update({
+      completed:true,
+      completed_at:new Date().toISOString()
+    })
     .eq('id',id)
 
   if(error) return flash(error.message)
 
-  flash('İhtiyaç tamamlandı.')
+  flash('✓ Alındı olarak işaretlendi.')
   loadData()
+}
 }
   async function deleteNeed(id){
   const ok = confirm('Bu ihtiyaç listeden silinsin mi?')
