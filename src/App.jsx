@@ -4,7 +4,15 @@ import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase, configured } from './supabase'
 import { enableNotifications } from './notifications'
 
-const emptyProduct = { name:'', barcode:'', category:'', unit:'adet', notes:'', min_stock:0 }
+const emptyProduct = {
+  name:'',
+  barcode:'',
+  category:'',
+  unit:'adet',
+  notes:'',
+  min_stock:0,
+  box_size:1
+}
 const emptyBatch = { lot_no:'', expiry_date:'', quantity:1 }
 const daysLeft = d => Math.ceil((new Date(d+'T23:59:59') - new Date()) / 86400000)
 const fmt = d => d ? new Intl.DateTimeFormat('tr-TR').format(new Date(d+'T12:00:00')) : '-'
@@ -386,19 +394,39 @@ if(barcode){
 
   if(findError) return flash(findError.message)
 
-  if(existing){
-    p=existing
+ if(existing){
+  p=existing
+
+  if(
+    productForm.unit==='kutu' &&
+    Number(productForm.box_size)>0 &&
+    Number(existing.box_size)!==Number(productForm.box_size)
+  ){
+    const {data:updated,error:updateError}=await supabase
+      .from('products')
+      .update({
+        box_size:Number(productForm.box_size)
+      })
+      .eq('id',existing.id)
+      .select()
+      .single()
+
+    if(updateError) return flash(updateError.message)
+
+    p=updated
   }
+}
 }
 
 if(!p){
   const {data:newProduct,error:productError}=await supabase
     .from('products')
-    .insert({
-      ...productForm,
-      barcode,
-      created_by:session.user.id
-    })
+   .insert({
+  ...productForm,
+  barcode,
+  unit:'adet',
+  created_by:session.user.id
+})
     .select()
     .single()
 
@@ -406,13 +434,20 @@ if(!p){
 
   p=newProduct
 }
+  const enteredQty=Number(batchForm.quantity)
+const boxSize=Number(productForm.box_size || p.box_size || 1)
+
+const stockQty=
+  productForm.unit==='kutu'
+    ? enteredQty * boxSize
+    : enteredQty
   const {error:be}=await supabase
     .from('batches')
     .insert({
       product_id:p.id,
       ...batchForm,
       branch,
-      quantity:Number(batchForm.quantity)
+      quantity:stockQty
     })
 
   if(be) return flash(be.message)
@@ -530,11 +565,29 @@ if(!p){
     }
   },100)
 }
-  function handleBarcode(code,mode){
-    if(mode==='new'){openNew(code);return}
-    const p=products.find(x=>x.barcode===code)
-    if(p)openProduct(p); else { if(confirm('Bu barkod kayıtlı değil. Yeni ürün olarak eklemek ister misin?')) openNew(code) }
+ function handleBarcode(code,mode){
+  const p=products.find(x=>x.barcode===code)
+
+  if(mode==='new'){
+    if(p){
+      setProductForm({
+        ...p,
+        unit:Number(p.box_size)>1 ? 'kutu' : 'adet'
+      })
+      setBatchForm(emptyBatch)
+      setModal('new')
+    }else{
+      openNew(code)
+    }
+    return
   }
+
+  if(p){
+    openProduct(p)
+  }else if(confirm('Bu barkod kayıtlı değil. Yeni ürün olarak eklemek ister misin?')){
+    openNew(code)
+  }
+}
   async function notify(){
     try{await enableNotifications(session.user.id);flash('Bildirimler açıldı.')}catch(e){flash(e.message)}
   }async function testNotification(){
@@ -1428,31 +1481,40 @@ function ProductForm({title,form,setForm,batch,setBatch,submit,scan,isNew}){
         />
       </label>
 
-      <label>
-        Miktar
-        <input
-          type="number"
-          min="1"
-          value={batch.quantity}
-          onChange={e=>setBatch({...batch,quantity:e.target.value})}
-          required
-        />
-      </label>
+     <label>
+  Giriş Şekli
+  <select
+    value={form.unit || 'adet'}
+    onChange={e=>setForm({...form,unit:e.target.value})}
+  >
+    <option value="adet">Adet</option>
+    <option value="kutu">Kutu</option>
+  </select>
+</label>
 
-      <label>
-        Birim
-        <select
-          value={form.unit || 'adet'}
-          onChange={e=>setForm({...form,unit:e.target.value})}
-        >
-          <option value="adet">Adet</option>
-          <option value="paket">Paket</option>
-          <option value="koli">Koli</option>
-          <option value="kg">Kg</option>
-          <option value="litre">Litre</option>
-        </select>
-      </label>
+{form.unit==='kutu' && (
+  <label>
+    1 Kutuda Kaç Adet?
+    <input
+      type="number"
+      min="1"
+      value={form.box_size || 1}
+      onChange={e=>setForm({...form,box_size:Number(e.target.value)})}
+      required
+    />
+  </label>
+)}
 
+<label>
+  {form.unit==='kutu' ? 'Kaç Kutu Geldi?' : 'Kaç Adet Geldi?'}
+  <input
+    type="number"
+    min="1"
+    value={batch.quantity}
+    onChange={e=>setBatch({...batch,quantity:e.target.value})}
+    required
+  />
+</label>
       <label>
         Son Kullanma Tarihi
         <input
