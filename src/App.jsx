@@ -42,6 +42,69 @@ const [needForm,setNeedForm]=useState({
 })
   const [message,setMessage]=useState(''), [scanner,setScanner]=useState(false), [scanMode,setScanMode]=useState('find')
   const videoRef=useRef(null), scannerControls=useRef(null)
+  const swipeStartX=useRef(null)
+const swipeStartY=useRef(null)
+  useEffect(()=>{
+  function onTouchStart(e){
+    if(e.touches.length!==1) return
+
+    const touch=e.touches[0]
+
+    // Sadece ekranın sol kenarından başlayan hareket
+    if(touch.clientX>35) return
+
+    swipeStartX.current=touch.clientX
+    swipeStartY.current=touch.clientY
+  }
+
+  function onTouchEnd(e){
+    if(swipeStartX.current===null) return
+
+    const touch=e.changedTouches[0]
+
+    const diffX=touch.clientX-swipeStartX.current
+    const diffY=Math.abs(touch.clientY-swipeStartY.current)
+
+    swipeStartX.current=null
+    swipeStartY.current=null
+
+    // Yeterince sağa kaydırılmadıysa veya dikey hareket fazlaysa iptal
+    if(diffX<80 || diffY>70) return
+
+    if(scanner){
+      scannerControls.current?.stop()
+      setScanner(false)
+      return
+    }
+
+    if(modal){
+      setModal(null)
+      return
+    }
+
+    if(tab==='products' && profile?.role==='admin' && productBranch){
+      setProductBranch(null)
+      return
+    }
+
+    if(tab==='needs' && profile?.role==='admin' && selectedBranch){
+      setSelectedBranch(null)
+      return
+    }
+
+    if(profile?.role==='admin' && tab!=='home'){
+      setTab('home')
+    }
+  }
+
+  window.addEventListener('touchstart',onTouchStart,{passive:true})
+  window.addEventListener('touchend',onTouchEnd,{passive:true})
+
+  return ()=>{
+    window.removeEventListener('touchstart',onTouchStart)
+    window.removeEventListener('touchend',onTouchEnd)
+  }
+},[scanner,modal,tab,profile,productBranch,selectedBranch])
 
   useEffect(()=>{
     if(!configured){ setLoading(false); return }
@@ -1456,7 +1519,28 @@ setRegisterSuccess('Hesabın oluşturuldu. Şimdi giriş yapabilirsin.')
 function SetupMissing(){return <div className="login"><div className="brand"><img src="/icon.svg"/><h1>StokCep hazır</h1><p>Bağlantı bilgileri henüz girilmemiş. Paketteki KURULUM.md dosyasındaki adımları tamamla.</p></div></div>}
 function Stat({n,t,warn,danger}){return <div className={'stat '+(warn?'warn ':'')+(danger?'danger':'')}><strong>{n}</strong><span>{t}</span></div>}
 function Empty({text}){return <div className="empty">{text}</div>}
-function BatchRow({b}){const d=daysLeft(b.expiry_date);return <div className="batchRow"><div><b>{b.products?.name||'Ürün'}</b><small>{b.lot_no?`Lot: ${b.lot_no} · `:''}{b.quantity} {b.products?.unit||'adet'} · {fmt(b.expiry_date)}</small></div><span className={d<0?'pill red':d<=10?'pill orange':'pill'}>{d<0?`${Math.abs(d)} gün geçti`:d===0?'Bugün':`${d} gün`}</span></div>}
+function BatchRow({b}){
+  const d=daysLeft(b.expiry_date)
+
+  return (
+    <div className="batchRow">
+      <div>
+        <b>{b.products?.name || 'Ürün'}</b>
+        <small>
+          {b.quantity} adet · {fmt(b.expiry_date)}
+        </small>
+      </div>
+
+      <span className={d<0 ? 'pill red' : d<=10 ? 'pill orange' : 'pill'}>
+        {d<0
+          ? `${Math.abs(d)} gün geçti`
+          : d===0
+            ? 'Bugün'
+            : `${d} gün`}
+      </span>
+    </div>
+  )
+}
 function Modal({children,close}){return <div className="overlay" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div className="modal"><button className="closeModal" onClick={close}><X/></button>{children}</div></div>}
 function ProductForm({title,form,setForm,batch,setBatch,submit,scan,isNew}){
   return (
