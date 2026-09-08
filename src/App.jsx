@@ -685,6 +685,7 @@ if(showSplash) return (
       color:'white',
       textAlign:'center',
       padding:'24px'
+      paddingBottom:'180px',
     }}
   >
     <img
