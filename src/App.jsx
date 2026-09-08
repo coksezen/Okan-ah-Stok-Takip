@@ -337,7 +337,6 @@ async function markGroupPickedUp(ids){
   flash('✓ Alındı olarak işaretlendi.')
   loadData()
 }
-}
   async function deleteNeed(id){
   const ok = confirm('Bu ihtiyaç listeden silinsin mi?')
   if(!ok) return
