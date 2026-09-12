@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Barcode, Bell, Boxes, CalendarDays, ClipboardList, Eye, EyeOff, LogOut, Minus, Plus, Search, Settings, Trash2, X } from 'lucide-react'
+import { Barcode, Bell, Boxes, CalendarDays, ClipboardList, Eye, EyeOff, LogOut, Minus, Moon, Plus, Search, Settings, Sun, Trash2, X } from 'lucide-react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase, configured } from './supabase'
 import { enableNotifications } from './notifications'
@@ -26,6 +26,11 @@ const fmt = d => d ? new Intl.DateTimeFormat('tr-TR').format(new Date(d+'T12:00:
 export default function App(){
   const [session,setSession]=useState(null), [loading,setLoading]=useState(true)
   const [showSplash,setShowSplash]=useState(true)
+  const [darkMode,setDarkMode]=useState(()=>{
+    const saved=localStorage.getItem('okan-sah-theme')
+    if(saved) return saved==='dark'
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false
+  })
   const [tab,setTab]=useState(new URLSearchParams(location.search).get('tab') || 'home')
   const [products,setProducts]=useState([]), [batches,setBatches]=useState([]), [query,setQuery]=useState('')
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
@@ -50,6 +55,16 @@ const [needForm,setNeedForm]=useState({
   const videoRef=useRef(null), scannerControls=useRef(null)
   const swipeStartX=useRef(null)
 const swipeStartY=useRef(null)
+  useEffect(()=>{
+    document.documentElement.classList.toggle('dark',darkMode)
+    localStorage.setItem('okan-sah-theme',darkMode ? 'dark' : 'light')
+
+    const themeMeta=document.querySelector('meta[name="theme-color"]')
+    if(themeMeta){
+      themeMeta.setAttribute('content',darkMode ? '#080d18' : '#f8fafc')
+    }
+  },[darkMode])
+
   useEffect(()=>{
   function onTouchStart(e){
     if(e.touches.length!==1) return
@@ -790,8 +805,8 @@ if(showSplash) return (
       flexDirection:'column',
       alignItems:'center',
       justifyContent:'center',
-      background:'#ffffff',
-color:'#0f172a',
+      background:darkMode ? '#080d18' : '#ffffff',
+color:darkMode ? '#f8fafc' : '#0f172a',
       textAlign:'center',
       padding:'24px',
 paddingBottom:'180px',
@@ -1342,6 +1357,27 @@ acc[key].branchRows[n.branch].push(n)
   </div>
 </>}
       {tab==='settings' && <>
+        <div className="card themeSetting">
+          <div className="themeSettingText">
+            <h3>Görünüm</h3>
+            <p>{darkMode ? 'Gece modu açık.' : 'Gündüz modu açık.'} Seçimin bu cihazda hatırlanır.</p>
+          </div>
+
+          <button
+            type="button"
+            className={`themeToggle ${darkMode ? 'on' : ''}`}
+            onClick={()=>setDarkMode(v=>!v)}
+            aria-pressed={darkMode}
+            aria-label={darkMode ? 'Gece modunu kapat' : 'Gece modunu aç'}
+          >
+            {darkMode ? <Moon size={18}/> : <Sun size={18}/>}
+            <span>{darkMode ? 'Gece Modu' : 'Gündüz Modu'}</span>
+            <span className="themeSwitchTrack" aria-hidden="true">
+              <span className="themeSwitchKnob" />
+            </span>
+          </button>
+        </div>
+
         <div className="card">
   <h3>Telefon bildirimleri</h3>
   <p>Son kullanma tarihine 10 gün kalan partiler için bu telefonda bildirim al.</p>
@@ -1496,6 +1532,14 @@ acc[key].branchRows[n.branch].push(n)
   >
     <CalendarDays size={22}/>
     <span>SKT</span>
+  </button>
+
+  <button
+    className={tab==='settings' ? 'active' : ''}
+    onClick={()=>setTab('settings')}
+  >
+    <Settings size={22}/>
+    <span>Ayarlar</span>
   </button>
 </nav>
 )}
