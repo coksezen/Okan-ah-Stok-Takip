@@ -10,6 +10,57 @@ const vapidSubject = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@example.com'
 webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
 const supabase = createClient(supabaseUrl, serviceKey)
 
+function turkeyDateParts(){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date())
+
+  const values = Object.fromEntries(parts.map(p => [p.type, p.value]))
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day)
+  }
+}
+
+function dateAfterDays(days:number){
+  const {year,month,day} = turkeyDateParts()
+  const d = new Date(Date.UTC(year, month - 1, day + days))
+  return d.toISOString().slice(0,10)
+}
+
+async function sendToSubscriptions(subscriptions:any[], payload:string){
+  let sent = 0
+
+  for (const s of subscriptions) {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: s.endpoint,
+          keys: {
+            p256dh: s.p256dh,
+            auth: s.auth
+          }
+        },
+        payload
+      )
+      sent++
+    } catch (e) {
+      if (e.statusCode === 404 || e.statusCode === 410) {
+        await supabase
+          .from('push_subscriptions')
+          .delete()
+          .eq('id', s.id)
+      }
+    }
+  }
+
+  return sent
+}
+
 Deno.serve(async (req) => {
   try {
     let isTest = false
@@ -37,7 +88,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // TEST BİLDİRİMİ
     if (isTest) {
       const payload = JSON.stringify({
         title: 'StokCep test bildirimi',
@@ -46,117 +96,60 @@ Deno.serve(async (req) => {
         data: { test: true }
       })
 
-      let sent = 0
-
-      for (const s of subscriptions) {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: s.endpoint,
-              keys: {
-                p256dh: s.p256dh,
-                auth: s.auth
-              }
-            },
-            payload
-          )
-          sent++
-        } catch (e) {
-          if (e.statusCode === 404 || e.statusCode === 410) {
-            await supabase
-              .from('push_subscriptions')
-              .delete()
-              .eq('id', s.id)
-          }
-        }
-      }
-
-      return Response.json({
-        ok: true,
-        test: true,
-        sent
-      })
-    }
-
-    // NORMAL SKT KONTROLÜ
-    const target = new Date()
-    target.setDate(target.getDate() + 10)
-    const targetDate = target.toISOString().slice(0, 10)
-
-    const { data: batches, error } = await supabase
-      .from('batches')
-      .select('id,expiry_date,quantity,lot_no,products(name,unit)')
-      .eq('expiry_date', targetDate)
-      .gt('quantity', 0)
-
-    if (error) {
-      return new Response(error.message, { status: 500 })
-    }
-
-    if (!batches?.length) {
-      return Response.json({
-        ok: true,
-        sent: 0
-      })
+      const sent = await sendToSubscriptions(subscriptions, payload)
+      return Response.json({ ok: true, test: true, sent })
     }
 
     let sent = 0
+    let matched = 0
 
-    for (const batch of batches) {
-      const { data: existing } = await supabase
-        .from('notification_log')
-        .select('id')
-        .eq('batch_id', batch.id)
-        .eq('notification_type', 'expiry_10d')
-        .maybeSingle()
+    for (const days of [10, 3]) {
+      const targetDate = dateAfterDays(days)
+      const notificationType = `expiry_${days}d`
 
-      if (existing) continue
+      const { data: batches, error } = await supabase
+        .from('batches')
+        .select('id,expiry_date,quantity,lot_no,products(name,unit)')
+        .eq('expiry_date', targetDate)
+        .gt('quantity', 0)
 
-      const payload = JSON.stringify({
-        title: 'Son kullanma tarihi yaklaşıyor',
-        body: `${batch.products?.name || 'Ürün'} için 10 gün kaldı. Stok: ${batch.quantity} ${batch.products?.unit || 'adet'}`,
-        tag: `expiry-${batch.id}`,
-        data: {
-          batch_id: batch.id
-        }
-      })
-
-      for (const s of subscriptions) {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: s.endpoint,
-              keys: {
-                p256dh: s.p256dh,
-                auth: s.auth
-              }
-            },
-            payload
-          )
-          sent++
-        } catch (e) {
-          if (e.statusCode === 404 || e.statusCode === 410) {
-            await supabase
-              .from('push_subscriptions')
-              .delete()
-              .eq('id', s.id)
-          }
-        }
+      if (error) {
+        return new Response(error.message, { status: 500 })
       }
 
-      await supabase
-        .from('notification_log')
-        .insert({
-          batch_id: batch.id,
-          notification_type: 'expiry_10d'
+      for (const batch of batches || []) {
+        const { data: existing } = await supabase
+          .from('notification_log')
+          .select('id')
+          .eq('batch_id', batch.id)
+          .eq('notification_type', notificationType)
+          .maybeSingle()
+
+        if (existing) continue
+        matched++
+
+        const payload = JSON.stringify({
+          title: days === 3 ? 'SKT çok yaklaştı' : 'Son kullanma tarihi yaklaşıyor',
+          body: `${batch.products?.name || 'Ürün'} için ${days} gün kaldı. Stok: ${batch.quantity} ${batch.products?.unit || 'adet'}`,
+          tag: `expiry-${days}-${batch.id}`,
+          data: {
+            batch_id: batch.id,
+            days_left: days
+          }
         })
+
+        sent += await sendToSubscriptions(subscriptions, payload)
+
+        await supabase
+          .from('notification_log')
+          .insert({
+            batch_id: batch.id,
+            notification_type: notificationType
+          })
+      }
     }
 
-    return Response.json({
-      ok: true,
-      sent
-    })
-
+    return Response.json({ ok: true, sent, matched })
   } catch (e) {
     return new Response(
       e?.message || 'Beklenmeyen hata',

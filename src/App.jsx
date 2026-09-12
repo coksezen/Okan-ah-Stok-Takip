@@ -20,7 +20,13 @@ const emptyBatch = {
   box_count:1,
   status:'closed'
 }
-const daysLeft = d => Math.ceil((new Date(d+'T23:59:59') - new Date()) / 86400000)
+const daysLeft = d => {
+  if(!d) return Infinity
+  const today=new Date()
+  today.setHours(0,0,0,0)
+  const expiry=new Date(d+'T00:00:00')
+  return Math.round((expiry.getTime()-today.getTime())/86400000)
+}
 const fmt = d => d ? new Intl.DateTimeFormat('tr-TR').format(new Date(d+'T12:00:00')) : '-'
 
 export default function App(){
@@ -1175,25 +1181,16 @@ paddingBottom:'180px',
   if(!session) return <Login login={login} setLogin={setLogin} error={loginError} submit={signIn} signUp={signUp}/>
 
   const expiryList=[...batches].sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
-  const today=new Date()
-today.setHours(0,0,0,0)
 
 const expiryWarnings=batches
   .filter(b=>{
     // Çalışan sadece kendi şubesinin uyarısını görsün
     if(profile?.role==='branch' && b.branch!==profile.branch) return false
 
-    const expiry=new Date(b.expiry_date+'T00:00:00')
-    const daysLeft=Math.ceil((expiry-today)/(1000*60*60*24))
-
-    return daysLeft>=0 && daysLeft<=10
+    const remaining=daysLeft(b.expiry_date)
+    return remaining>=0 && remaining<=10
   })
-  .map(b=>{
-    const expiry=new Date(b.expiry_date+'T00:00:00')
-    const daysLeft=Math.ceil((expiry-today)/(1000*60*60*24))
-
-    return {...b,daysLeft}
-  })
+  .map(b=>({...b,daysLeft:daysLeft(b.expiry_date)}))
   .sort((a,b)=>a.daysLeft-b.daysLeft)
   const branchLabels={
   veteriner:'Veteriner Fakültesi',

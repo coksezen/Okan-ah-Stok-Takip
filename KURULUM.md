@@ -35,7 +35,7 @@ Supabase Edge Function secrets bölümüne şunları ekle:
 
 `send-expiry-notifications` klasörünü Supabase Edge Functions'a deploy et.
 
-Sonra Supabase Dashboard > Cron bölümünde bu fonksiyonu her gün 09:00'da çalışacak şekilde ayarla. Türkiye saati için UTC farkını dikkate al; örneğin 06:00 UTC yaklaşık 09:00 Türkiye saatidir.
+Sonra Supabase Dashboard > Cron bölümünde bu fonksiyonu her gün Türkiye saatiyle 11:00'da çalışacak şekilde ayarla. Supabase cron UTC kullanıyorsa 08:00 UTC olarak ayarla.
 
 ## 4) Bilgisayarda test
 Node.js 20+ önerilir.
