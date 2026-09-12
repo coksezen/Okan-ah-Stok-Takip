@@ -73,7 +73,7 @@ const swipeStartY=useRef(null)
 
     const themeMeta=document.querySelector('meta[name="theme-color"]')
     if(themeMeta){
-      themeMeta.setAttribute('content',darkMode ? '#080d18' : '#f8fafc')
+      themeMeta.setAttribute('content',darkMode ? '#080d18' : '#ffffff')
     }
   },[darkMode])
 
