@@ -32,6 +32,16 @@ export default function App(){
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false
   })
   const [settingsTab,setSettingsTab]=useState('general')
+  const [recentProducts,setRecentProducts]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('okan-sah-recent-products') || '[]')}catch{return []}
+  })
+  const [needFavorites,setNeedFavorites]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('okan-sah-need-favorites') || '[]')}catch{return []}
+  })
+  const [offlineQueue,setOfflineQueue]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('okan-sah-offline-queue') || '[]')}catch{return []}
+  })
+  const [quickScanAfterSave,setQuickScanAfterSave]=useState(false)
   const [tab,setTab]=useState(new URLSearchParams(location.search).get('tab') || 'home')
   const [products,setProducts]=useState([]), [batches,setBatches]=useState([]), [query,setQuery]=useState('')
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
@@ -54,6 +64,7 @@ const [needForm,setNeedForm]=useState({
 })
   const [message,setMessage]=useState(''), [scanner,setScanner]=useState(false), [scanMode,setScanMode]=useState('find')
   const videoRef=useRef(null), scannerControls=useRef(null)
+  const syncingOffline=useRef(false)
   const swipeStartX=useRef(null)
 const swipeStartY=useRef(null)
   useEffect(()=>{
@@ -65,6 +76,26 @@ const swipeStartY=useRef(null)
       themeMeta.setAttribute('content',darkMode ? '#080d18' : '#f8fafc')
     }
   },[darkMode])
+
+  useEffect(()=>{
+    localStorage.setItem('okan-sah-recent-products',JSON.stringify(recentProducts))
+  },[recentProducts])
+
+  useEffect(()=>{
+    localStorage.setItem('okan-sah-need-favorites',JSON.stringify(needFavorites))
+  },[needFavorites])
+
+  useEffect(()=>{
+    localStorage.setItem('okan-sah-offline-queue',JSON.stringify(offlineQueue))
+  },[offlineQueue])
+
+  useEffect(()=>{
+    if(!session) return
+    const sync=()=>syncOfflineQueue()
+    window.addEventListener('online',sync)
+    if(navigator.onLine && offlineQueue.length) sync()
+    return ()=>window.removeEventListener('online',sync)
+  },[session,offlineQueue])
 
   useEffect(()=>{
   function onTouchStart(e){
@@ -163,6 +194,17 @@ async function loadData(){
   ])
 
   if(pe||be||ne||pre){
+    try{
+      const cached=JSON.parse(localStorage.getItem('okan-sah-data-cache') || 'null')
+      if(cached){
+        setProducts(cached.products || [])
+        setBatches(cached.batches || [])
+        setNeeds(cached.needs || [])
+        setProfile(cached.profile || null)
+        flash('Çevrimdışısın. Son kayıtlı veriler gösteriliyor.')
+        return
+      }
+    }catch{}
     return flash((pe||be||ne||pre).message)
   }
 
@@ -170,6 +212,12 @@ async function loadData(){
   setBatches(b||[])
   setNeeds(n||[])
   setProfile(pr||null)
+  localStorage.setItem('okan-sah-data-cache',JSON.stringify({
+    products:p||[],
+    batches:b||[],
+    needs:n||[],
+    profile:pr||null
+  }))
 
   if(pr?.role==='admin'){
     const {data:au,error:aue}=await supabase
@@ -189,6 +237,78 @@ async function loadData(){
     setTab('needs')
   }
 }
+function addOfflineAction(type,payload){
+  const action={
+    id:`${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    type,
+    payload,
+    created_at:new Date().toISOString()
+  }
+  setOfflineQueue(prev=>[...prev,action])
+  return action
+}
+
+async function syncOfflineQueue(){
+  if(syncingOffline.current || !navigator.onLine || !session || !offlineQueue.length) return
+  syncingOffline.current=true
+
+  let remaining=[...offlineQueue]
+  let completed=0
+
+  try{
+    for(const action of offlineQueue){
+      let error=null
+
+      if(action.type==='addNeed'){
+        const result=await supabase.from('branch_needs').insert(action.payload)
+        error=result.error
+      }else if(action.type==='addBatch'){
+        const result=await supabase.from('batches').insert(action.payload)
+        error=result.error
+      }
+
+      if(error) break
+
+      remaining=remaining.filter(x=>x.id!==action.id)
+      completed++
+    }
+
+    if(completed){
+      setOfflineQueue(remaining)
+      await loadData()
+      flash(`${completed} çevrimdışı işlem senkronlandı.`)
+    }
+  }finally{
+    syncingOffline.current=false
+  }
+}
+
+function rememberRecentProduct(p){
+  if(!p?.id) return
+  setRecentProducts(prev=>[p.id,...prev.filter(id=>id!==p.id)].slice(0,8))
+}
+
+function toggleNeedFavorite(){
+  const name=needForm.item_name.trim()
+  const unit=needForm.unit.trim() || 'adet'
+  if(!name) return flash('Önce ürün adı yazmalısın.')
+
+  const key=name.toLocaleLowerCase('tr-TR')+'__'+unit.toLocaleLowerCase('tr-TR')
+  const exists=needFavorites.some(f=>f.key===key)
+
+  if(exists){
+    setNeedFavorites(prev=>prev.filter(f=>f.key!==key))
+    flash('Sık kullanılanlardan çıkarıldı.')
+  }else{
+    setNeedFavorites(prev=>[{key,name,unit},...prev].slice(0,16))
+    flash('Sık kullanılanlara eklendi.')
+  }
+}
+
+function useNeedFavorite(f){
+  setNeedForm(prev=>({...prev,item_name:f.name,unit:f.unit || 'adet'}))
+}
+
 async function addAllowedUser(e){
   e.preventDefault()
 
@@ -262,23 +382,35 @@ async function addNeed(e){
     return flash('Adet 1 veya daha fazla olmalı.')
   }
 
+  const payload={
+    branch:selectedBranch,
+    item_name:needForm.item_name.trim(),
+    quantity:Number(needForm.quantity),
+    unit:needForm.unit.trim() || 'adet',
+    note:needForm.note || null
+  }
+
+  if(!navigator.onLine){
+    addOfflineAction('addNeed',payload)
+    setNeeds(prev=>[{
+      id:`offline-${Date.now()}`,
+      ...payload,
+      created_at:new Date().toISOString(),
+      picked_up:false,
+      delivered:false,
+      completed:false
+    },...prev])
+    setNeedForm({item_name:'',quantity:1,unit:'adet',note:''})
+    return flash('İnternet yok. İhtiyaç kaydedildi; bağlantı gelince gönderilecek.')
+  }
+
   const {error}=await supabase
     .from('branch_needs')
-.insert({
-  branch:selectedBranch,
-  item_name:needForm.item_name.trim(),
-  quantity:Number(needForm.quantity),
-  unit:needForm.unit.trim() || 'adet',
-  note:needForm.note || null
-})
+    .insert(payload)
+
   if(error) return flash(error.message)
 
-  setNeedForm({
-  item_name:'',
-  quantity:1,
-  unit:'adet',
-  note:''
-})
+  setNeedForm({item_name:'',quantity:1,unit:'adet',note:''})
   flash('İhtiyaç eklendi.')
   loadData()
 }
@@ -459,9 +591,21 @@ function flash(t){
   )
   .reduce((a,b)=>a+Number(b.quantity||0),0)
   const filtered=products.filter(p=>(p.name+' '+(p.barcode||'')+' '+(p.category||'')).toLowerCase().includes(query.toLowerCase()))
+  const recentProductRows=recentProducts.map(id=>products.find(p=>p.id===id)).filter(Boolean)
+  const needSuggestions=[...new Set([
+    ...needFavorites.map(f=>f.name),
+    ...products.map(p=>p.name),
+    ...needs.map(n=>n.item_name)
+  ].filter(Boolean))]
+    .filter(name=>{
+      const q=needForm.item_name.trim().toLocaleLowerCase('tr-TR')
+      return q && name.toLocaleLowerCase('tr-TR').includes(q) && name.toLocaleLowerCase('tr-TR')!==q
+    })
+    .slice(0,6)
 
   function openNew(barcode=''){ setProductForm({...emptyProduct,barcode}); setBatchForm(emptyBatch); setModal('new') }
-  function openProduct(p){
+  function openProduct(p,quick=false){
+    setQuickScanAfterSave(Boolean(quick))
     if(profile?.role==='admin' && !productBranch){
       const choice=prompt(
         'Hangi kantin için işlem yapılıyor?\n1 - Veteriner Fakültesi\n2 - İktisat Fakültesi\n3 - Suna UZAL\n4 - USO'
@@ -613,11 +757,11 @@ const stockQty=
     return flash('Şube belirlenemedi.')
 
   const isBox=Number(productForm.box_size)>1
-  let error=null
+  let payload
 
   if(isBox){
     const boxCount=Math.max(1,Number(batchForm.box_count || 1))
-    const rows=Array.from({length:boxCount},()=>({
+    payload=Array.from({length:boxCount},()=>({
       product_id:productForm.id,
       branch,
       expiry_date:batchForm.expiry_date,
@@ -625,38 +769,55 @@ const stockQty=
       box_count:1,
       status:'closed'
     }))
-
-    const result=await supabase
-      .from('batches')
-      .insert(rows)
-
-    error=result.error
-
-    if(!error){
-      setBatchForm(emptyBatch)
-      await loadData()
-      return flash(`${boxCount} kutu eklendi.`)
-    }
   }else{
-    const result=await supabase
-      .from('batches')
-      .insert({
-        product_id:productForm.id,
-        branch,
-        expiry_date:batchForm.expiry_date,
-        quantity:Number(batchForm.quantity),
-        box_count:1,
-        status:'closed'
-      })
-
-    error=result.error
+    payload={
+      product_id:productForm.id,
+      branch,
+      expiry_date:batchForm.expiry_date,
+      quantity:Number(batchForm.quantity),
+      box_count:1,
+      status:'closed'
+    }
   }
+
+  if(!navigator.onLine){
+    addOfflineAction('addBatch',payload)
+    const optimistic=(Array.isArray(payload) ? payload : [payload]).map((row,i)=>({
+      id:`offline-batch-${Date.now()}-${i}`,
+      ...row,
+      products:{
+        name:productForm.name,
+        barcode:productForm.barcode,
+        unit:productForm.unit,
+        box_size:productForm.box_size
+      }
+    }))
+    setBatches(prev=>[...prev,...optimistic])
+    setBatchForm(emptyBatch)
+    flash('İnternet yok. Parti kaydedildi; bağlantı gelince gönderilecek.')
+
+    if(quickScanAfterSave){
+      setModal(null)
+      setTimeout(()=>startScanner('quick'),250)
+    }
+    return
+  }
+
+  const {error}=await supabase
+    .from('batches')
+    .insert(payload)
 
   if(error) return flash(error.message)
 
+  const boxCount=Array.isArray(payload) ? payload.length : 1
   setBatchForm(emptyBatch)
   await loadData()
-  flash('Parti eklendi.')
+  flash(isBox ? `${boxCount} kutu eklendi.` : 'Parti eklendi.')
+
+  if(quickScanAfterSave){
+    setModal(null)
+    setTimeout(()=>startScanner('quick'),250)
+  }
 }
   async function changeQty(batch,delta){
     const next=Math.max(0,Number(batch.quantity)+delta)
@@ -767,8 +928,21 @@ const stockQty=
  function handleBarcode(code,mode){
   const p=products.find(x=>x.barcode===code)
 
+  if(mode==='quick'){
+    if(p){
+      rememberRecentProduct(p)
+      openProduct(p,true)
+    }else{
+      setQuickScanAfterSave(false)
+      flash('Bu barkod ilk kez görülüyor. Ürünü bir kez tanımlaman gerekiyor.')
+      openNew(code)
+    }
+    return
+  }
+
   if(mode==='new'){
     if(p){
+      rememberRecentProduct(p)
       openProduct(p)
     }else{
       openNew(code)
@@ -777,6 +951,7 @@ const stockQty=
   }
 
   if(p){
+    rememberRecentProduct(p)
     openProduct(p)
   }else if(confirm('Bu barkod kayıtlı değil. Yeni ürün olarak eklemek ister misin?')){
     openNew(code)
@@ -916,6 +1091,14 @@ acc[key].branchRows[n.branch].push(n)
     rows.some(r=>!r.delivered)
   )
 )
+
+const dashboard={
+  urgent3:batches.filter(b=>daysLeft(b.expiry_date)>=0 && daysLeft(b.expiry_date)<=3).length,
+  near10:batches.filter(b=>daysLeft(b.expiry_date)>=0 && daysLeft(b.expiry_date)<=10).length,
+  openBoxes:batches.filter(b=>b.status==='open').length,
+  depotPending:groupedNeeds.filter(g=>!g.allPickedUp).length,
+  deliveryPending:needs.filter(n=>n.picked_up && !n.delivered).length
+}
   return <div className="app">
     <header><div className="topBrand">
   <img src="/icon.svg" alt="Okan-Şah Gıda" />
@@ -957,10 +1140,43 @@ acc[key].branchRows[n.branch].push(n)
     </div>
   </div>
 )}
+    {offlineQueue.length>0 && (
+      <div className="offlineBanner">
+        <b>Çevrimdışı kayıtlar bekliyor</b>
+        <span>{offlineQueue.length} işlem bağlantı gelince otomatik gönderilecek.</span>
+      </div>
+    )}
     <main>
       {tab==='home' && <>
-        <section className="hero"><h1>Stokların kontrol altında.</h1><p>Barkod okut, ürün ekle ve SKT yaklaşanları tek ekrandan gör.</p><button onClick={()=>startScanner('find')}><Barcode size={20}/> Barkod okut</button></section>
-        <div className="stats"><Stat n={totals.qty} t="Toplam adet"/><Stat n={totals.near} t="10 gün içinde" warn/><Stat n={totals.expired} t="Süresi geçen" danger/></div>
+        <section className="hero">
+          <h1>Stokların kontrol altında.</h1>
+          <p>Mal kabulünde hızlı giriş kullan; barkodu okutunca doğrudan SKT ekranı açılsın.</p>
+          <div className="heroActions">
+            <button onClick={()=>startScanner('quick')}><Barcode size={20}/> Hızlı Mal Girişi</button>
+            <button className="heroSecondary" onClick={()=>startScanner('find')}><Search size={19}/> Barkod Ara</button>
+          </div>
+        </section>
+
+        <div className="stats quickStats">
+          <Stat n={dashboard.urgent3} t="3 gün içinde" danger/>
+          <Stat n={dashboard.near10} t="10 gün içinde" warn/>
+          <Stat n={dashboard.openBoxes} t="Açık kutu"/>
+          <Stat n={dashboard.depotPending} t="Depodan alınacak"/>
+          <Stat n={dashboard.deliveryPending} t="Teslim bekleyen"/>
+        </div>
+
+        {recentProductRows.length>0 && <>
+          <div className="sectionTitle"><h2>Son Okutulanlar</h2></div>
+          <div className="recentGrid">
+            {recentProductRows.slice(0,6).map(p=>(
+              <button key={p.id} className="recentItem" onClick={()=>openProduct(p)}>
+                <b>{p.name}</b>
+                <small>{p.barcode || 'Barkod yok'}</small>
+              </button>
+            ))}
+          </div>
+        </>}
+
         <div className="sectionTitle"><h2>Yaklaşan tarihler</h2><button className="link" onClick={()=>setTab('expiry')}>Tümünü gör</button></div>
         <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
       </>}
@@ -1084,14 +1300,44 @@ acc[key].branchRows[n.branch].push(n)
     <div className="card">
   <h3>İhtiyaç Ekle</h3>
 
+  {needFavorites.length>0 && (
+    <div className="needFavorites">
+      <small>Sık kullanılanlar</small>
+      <div className="favoriteChips">
+        {needFavorites.map(f=>(
+          <button key={f.key} type="button" className="favoriteChip" onClick={()=>useNeedFavorite(f)}>
+            ★ {f.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  )}
+
   <form onSubmit={addNeed}>
-   <input
-  type="text"
-  placeholder="Ürün adı"
-  value={needForm.item_name}
-  onChange={e=>setNeedForm({...needForm,item_name:e.target.value})}
-  required
-/>
+   <div className="needNameField">
+    <input
+      type="text"
+      placeholder="Ürün adı"
+      value={needForm.item_name}
+      onChange={e=>setNeedForm({...needForm,item_name:e.target.value})}
+      autoComplete="off"
+      required
+    />
+
+    {needSuggestions.length>0 && (
+      <div className="needSuggestions">
+        {needSuggestions.map(name=>(
+          <button
+            type="button"
+            key={name}
+            onClick={()=>setNeedForm({...needForm,item_name:name})}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    )}
+   </div>
 
 <input
   type="text"
@@ -1117,9 +1363,16 @@ acc[key].branchRows[n.branch].push(n)
       onChange={e=>setNeedForm({...needForm,note:e.target.value})}
     />
 
-    <button type="submit">
-      İhtiyaç Ekle
-    </button>
+    <div className="needFormActions">
+      <button type="submit">
+        İhtiyaç Ekle
+      </button>
+      <button type="button" className="secondary" onClick={toggleNeedFavorite}>
+        {needFavorites.some(f=>f.key===needForm.item_name.trim().toLocaleLowerCase('tr-TR')+'__'+(needForm.unit.trim()||'adet').toLocaleLowerCase('tr-TR'))
+          ? '★ Sık Kullanılandan Çıkar'
+          : '☆ Sık Kullanılana Ekle'}
+      </button>
+    </div>
   </form>
 </div>
 
@@ -1273,9 +1526,14 @@ acc[key].branchRows[n.branch].push(n)
         )}
       </div>
 
-      <button onClick={()=>openNew()}>
-        <Plus size={18}/> Ürün Ekle
-      </button>
+      <div className="productTopActions">
+        <button onClick={()=>startScanner('quick')}>
+          <Barcode size={18}/> Hızlı Mal Girişi
+        </button>
+        <button className="secondary" onClick={()=>openNew()}>
+          <Plus size={18}/> Yeni Ürün
+        </button>
+      </div>
 
       <div className="search">
         <Search size={18}/>
@@ -1611,7 +1869,7 @@ acc[key].branchRows[n.branch].push(n)
       <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>
   b.product_id===productForm.id &&
   b.branch===(profile?.role==='branch' ? profile.branch : productBranch)
-)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} openBatch={openBatch} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
+)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} openBatch={openBatch} deleteBatch={deleteBatch} deleteProduct={deleteProduct} quickMode={quickScanAfterSave}/>} 
     </Modal>}
   </div>
 }
@@ -1862,66 +2120,88 @@ function ProductDetail({
   addBatch,
   openBatch,
   deleteBatch,
-  deleteProduct
+  deleteProduct,
+  quickMode
 }){
   const isBox=Number(product.box_size)>1
   const sortedBatches=[...batches].sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
+  const groupedBatches=Object.values(sortedBatches.reduce((acc,b)=>{
+    const key=b.expiry_date || 'tarihsiz'
+    if(!acc[key]) acc[key]={key,expiry_date:b.expiry_date,rows:[]}
+    acc[key].rows.push(b)
+    return acc
+  },{})).map(g=>({
+    ...g,
+    openRows:g.rows.filter(r=>r.status==='open'),
+    closedRows:g.rows.filter(r=>r.status!=='open'),
+    totalQty:g.rows.reduce((sum,r)=>sum+Number(r.quantity||0),0)
+  }))
+
+  const earliestClosedExpiry=isBox
+    ? groupedBatches.find(g=>g.closedRows.length)?.expiry_date
+    : null
 
   return (
     <div>
-      <h2>{product.name}</h2>
-      <p style={{marginTop:'-6px',color:'#64748b'}}>
-        {product.barcode || 'Barkod yok'}
-      </p>
+      <div className="productDetailHeader">
+        <div>
+          <h2>{product.name}</h2>
+          <p>{product.barcode || 'Barkod yok'}</p>
+        </div>
+        {quickMode && <span className="quickModeBadge">Hızlı Giriş</span>}
+      </div>
 
       <h3>SKT / Partiler</h3>
 
-      <div className="list compact">
-        {sortedBatches.map(b=>(
+      <div className="list compact batchGroups">
+        {isBox ? groupedBatches.map(g=>{
+          const isFirst=g.expiry_date===earliestClosedExpiry && g.closedRows.length>0
+          const finishRow=g.openRows[0] || g.closedRows[0]
+
+          return (
+            <div className={`batchGroup ${isFirst ? 'firstToOpen' : ''}`} key={g.key}>
+              <div className="batchGroupInfo">
+                <div className="batchGroupTitle">
+                  <b>{fmt(g.expiry_date)}</b>
+                  {isFirst && <span className="firstOpenBadge">ÖNCE BUNU AÇ</span>}
+                </div>
+                <small>
+                  {g.rows.length} kutu · {g.openRows.length} açık · {g.closedRows.length} kapalı
+                </small>
+              </div>
+
+              <div className="batchGroupActions">
+                {g.closedRows.length>0 && (
+                  <button type="button" className="secondary" onClick={()=>openBatch(g.closedRows[0])}>
+                    Kutu Aç
+                  </button>
+                )}
+                {finishRow && (
+                  <button type="button" className="dangerBtn" onClick={()=>deleteBatch(finishRow.id)}>
+                    1 Kutu Bitti
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        }) : sortedBatches.map(b=>(
           <div className="manageBatch" key={b.id}>
             <div>
               <b>{fmt(b.expiry_date)}</b>
-              <small>
-                {isBox ? '1 kutu' : `${b.quantity} adet`}
-                {' · '}
-                {b.status==='open' ? '🟢 AÇIK' : '🔒 KAPALI'}
-              </small>
+              <small>{b.quantity} adet</small>
             </div>
-
             <div className="qty">
-              {isBox && b.status!=='open' && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={()=>openBatch(b)}
-                >
-                  Kutuyu Aç
-                </button>
-              )}
-
-              {isBox && b.status==='open' && (
-                <button type="button" className="secondary" disabled>
-                  ✓ Açık
-                </button>
-              )}
-
-              <button
-                type="button"
-                className="dangerBtn"
-                onClick={()=>deleteBatch(b.id)}
-              >
+              <button type="button" className="dangerBtn" onClick={()=>deleteBatch(b.id)}>
                 Bitti
               </button>
             </div>
           </div>
         ))}
 
-        {!sortedBatches.length &&
-          <Empty text="Bu üründe aktif parti yok."/>
-        }
+        {!sortedBatches.length && <Empty text="Bu üründe aktif parti yok."/>}
       </div>
 
-      <form onSubmit={addBatch} className="addBatch">
+      <form onSubmit={addBatch} className="addBatch quickBatchForm">
         <h3>+ Yeni Parti Ekle</h3>
 
         {isBox ? (
@@ -1932,10 +2212,7 @@ function ProductDetail({
               min="1"
               required
               value={batch.box_count || 1}
-              onChange={e=>setBatch({
-                ...batch,
-                box_count:e.target.value
-              })}
+              onChange={e=>setBatch({...batch,box_count:e.target.value})}
             />
           </label>
         ) : (
@@ -1946,10 +2223,7 @@ function ProductDetail({
               min="1"
               required
               value={batch.quantity}
-              onChange={e=>setBatch({
-                ...batch,
-                quantity:e.target.value
-              })}
+              onChange={e=>setBatch({...batch,quantity:e.target.value})}
             />
           </label>
         )}
@@ -1960,45 +2234,30 @@ function ProductDetail({
             type="date"
             required
             value={batch.expiry_date}
-            onChange={e=>setBatch({
-              ...batch,
-              expiry_date:e.target.value
-            })}
+            onChange={e=>setBatch({...batch,expiry_date:e.target.value})}
           />
         </label>
 
-        <button>Partiyi Ekle</button>
+        <button>{quickMode ? 'Kaydet ve Sonraki Barkodu Okut' : 'Partiyi Ekle'}</button>
       </form>
 
       <details style={{marginTop:'18px'}}>
-        <summary style={{cursor:'pointer',fontWeight:700}}>
-          Ürün bilgilerini düzenle
-        </summary>
+        <summary style={{cursor:'pointer',fontWeight:700}}>Ürün bilgilerini düzenle</summary>
 
         <form onSubmit={update} style={{marginTop:'12px'}}>
           <label>
             Ürün Adı
-            <input
-              value={product.name || ''}
-              onChange={e=>setProduct({...product,name:e.target.value})}
-              required
-            />
+            <input value={product.name || ''} onChange={e=>setProduct({...product,name:e.target.value})} required />
           </label>
 
           <label>
             Barkod
-            <input
-              value={product.barcode || ''}
-              onChange={e=>setProduct({...product,barcode:e.target.value})}
-            />
+            <input value={product.barcode || ''} onChange={e=>setProduct({...product,barcode:e.target.value})} />
           </label>
 
           <label>
             Not
-            <input
-              value={product.notes || ''}
-              onChange={e=>setProduct({...product,notes:e.target.value})}
-            />
+            <input value={product.notes || ''} onChange={e=>setProduct({...product,notes:e.target.value})} />
           </label>
 
           {isBox && (
@@ -2017,10 +2276,7 @@ function ProductDetail({
         </form>
       </details>
 
-      <button
-        className="deleteProduct"
-        onClick={()=>deleteProduct(product.id)}
-      >
+      <button className="deleteProduct" onClick={()=>deleteProduct(product.id)}>
         <Trash2 size={18}/> Ürünü Sil
       </button>
     </div>

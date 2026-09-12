@@ -488,3 +488,75 @@ html.dark .accountEmail{color:#cbd5e1 !important}
   .settingsActions{display:grid;grid-template-columns:1fr}
   .settingsActions button{width:100%}
 }
+
+
+/* Practical workflow improvements */
+.heroActions{display:flex;flex-wrap:wrap;gap:9px}
+.heroActions .heroSecondary{background:transparent !important;color:#fff !important;border:1px solid #ffffff55}
+.quickStats{grid-template-columns:repeat(5,minmax(0,1fr));margin-top:14px}
+.quickStats .stat{min-width:0}
+.quickStats .stat strong{font-size:22px}
+.recentGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:22px}
+.recentItem{display:flex;flex-direction:column;align-items:flex-start !important;justify-content:center !important;text-align:left;min-height:70px;background:#fff !important;color:#0f172a !important;border:1px solid #e2e8f0 !important;border-radius:15px !important;padding:12px 14px !important;min-width:0}
+.recentItem b{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recentItem small{margin-top:4px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+.productTopActions{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:8px}
+.offlineBanner{max-width:780px;margin:10px auto 0;padding:11px 16px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.offlineBanner span{color:#c2410c}
+.needFavorites{margin:0 0 14px}
+.needFavorites>small{display:block;color:#64748b;font-weight:700;margin-bottom:7px}
+.favoriteChips{display:flex;gap:7px;flex-wrap:wrap}
+.favoriteChip{background:#f1f5f9 !important;color:#334155 !important;border:1px solid #e2e8f0 !important;border-radius:999px !important;padding:8px 11px !important;font-size:13px !important}
+.needNameField{position:relative}
+.needSuggestions{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:8;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 28px #0f172a18;overflow:hidden}
+.needSuggestions button{width:100%;display:block !important;text-align:left !important;background:#fff !important;color:#0f172a !important;border-radius:0 !important;padding:10px 12px !important;border-bottom:1px solid #f1f5f9 !important;font-weight:650 !important}
+.needSuggestions button:last-child{border-bottom:0 !important}
+.needFormActions{display:flex;flex-wrap:wrap;gap:9px}
+.productDetailHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-right:42px}
+.productDetailHeader h2{margin-bottom:4px}
+.productDetailHeader p{margin:0;color:#64748b}
+.quickModeBadge{background:#dbeafe;color:#1d4ed8;padding:6px 9px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+.batchGroups{gap:10px}
+.batchGroup{width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.batchGroup.firstToOpen{border-color:#f59e0b;box-shadow:0 0 0 2px #fef3c7 inset}
+.batchGroupInfo{min-width:0;flex:1}
+.batchGroupTitle{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.batchGroupInfo small{display:block;margin-top:5px;color:#64748b}
+.firstOpenBadge{background:#fef3c7;color:#92400e;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:900;letter-spacing:.2px}
+.batchGroupActions{display:flex;gap:7px;flex:0 0 auto}
+.batchGroupActions button{white-space:nowrap}
+.quickBatchForm>button{width:100%}
+
+html.dark .recentItem,
+html.dark .batchGroup,
+html.dark .needSuggestions,
+html.dark .needSuggestions button{background:#111827 !important;color:#f8fafc !important;border-color:#263244 !important}
+html.dark .recentItem small,
+html.dark .batchGroupInfo small,
+html.dark .needFavorites>small{color:#94a3b8}
+html.dark .favoriteChip{background:#172033 !important;color:#cbd5e1 !important;border-color:#334155 !important}
+html.dark .needSuggestions button{border-bottom-color:#263244 !important}
+html.dark .batchGroup.firstToOpen{border-color:#b45309;box-shadow:0 0 0 2px #422006 inset}
+html.dark .firstOpenBadge{background:#422006;color:#fdba74}
+html.dark .quickModeBadge{background:#172554;color:#93c5fd}
+html.dark .offlineBanner{background:#2b1606;border-color:#7c2d12;color:#fdba74}
+html.dark .offlineBanner span{color:#fed7aa}
+
+@media(max-width:700px){
+  .quickStats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .quickStats .stat:first-child{grid-column:auto}
+  .recentGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .heroActions{display:grid;grid-template-columns:1fr}
+  .heroActions button{width:100%}
+  .productTopActions{display:grid;grid-template-columns:1fr 1fr}
+  .productTopActions button{width:100%;padding-left:8px !important;padding-right:8px !important;font-size:13px}
+  .offlineBanner{margin:8px 12px 0;flex-direction:column;gap:2px}
+  .needFormActions{display:grid;grid-template-columns:1fr}
+  .needFormActions button{width:100%}
+  .batchGroup{align-items:stretch;flex-direction:column}
+  .batchGroupActions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .batchGroupActions button{width:100%}
+  .productDetailHeader{padding-right:38px}
+}
