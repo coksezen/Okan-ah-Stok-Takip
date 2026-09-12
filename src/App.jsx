@@ -1274,9 +1274,9 @@ const dashboard={
             <b>{b.products?.name || 'Ürün'}</b>
 
             <small>
-              {b.daysLeft<=3
-                ? `🚨 SKT'ye ${b.daysLeft} gün kaldı`
-                : `⚠️ SKT'ye ${b.daysLeft} gün kaldı`}
+              {daysLeft(b.expiry_date)<=3
+                ? `🚨 SKT'ye ${daysLeft(b.expiry_date)} gün kaldı`
+                : `⚠️ SKT'ye ${daysLeft(b.expiry_date)} gün kaldı`}
             </small>
 
             <small>
