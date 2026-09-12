@@ -31,6 +31,7 @@ export default function App(){
     if(saved) return saved==='dark'
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false
   })
+  const [settingsTab,setSettingsTab]=useState('general')
   const [tab,setTab]=useState(new URLSearchParams(location.search).get('tab') || 'home')
   const [products,setProducts]=useState([]), [batches,setBatches]=useState([]), [query,setQuery]=useState('')
   const [login,setLogin]=useState({email:'',password:''}), [loginError,setLoginError]=useState('')
@@ -1357,136 +1358,196 @@ acc[key].branchRows[n.branch].push(n)
   </div>
 </>}
       {tab==='settings' && <>
-        <div className="card themeSetting">
-          <div className="themeSettingText">
-            <h3>Görünüm</h3>
-            <p>{darkMode ? 'Gece modu açık.' : 'Gündüz modu açık.'} Seçimin bu cihazda hatırlanır.</p>
-          </div>
+        <div className="sectionTitle settingsTitle">
+          <h1>Ayarlar</h1>
+        </div>
+
+        <div className="settingsTabs" role="tablist" aria-label="Ayar bölümleri">
+          <button
+            type="button"
+            className={settingsTab==='general' ? 'active' : ''}
+            onClick={()=>setSettingsTab('general')}
+          >
+            Genel
+          </button>
+
+          {profile?.role==='admin' && (
+            <button
+              type="button"
+              className={settingsTab==='users' ? 'active' : ''}
+              onClick={()=>setSettingsTab('users')}
+            >
+              Kullanıcılar
+            </button>
+          )}
 
           <button
             type="button"
-            className={`themeToggle ${darkMode ? 'on' : ''}`}
-            onClick={()=>setDarkMode(v=>!v)}
-            aria-pressed={darkMode}
-            aria-label={darkMode ? 'Gece modunu kapat' : 'Gece modunu aç'}
+            className={settingsTab==='account' ? 'active' : ''}
+            onClick={()=>setSettingsTab('account')}
           >
-            {darkMode ? <Moon size={18}/> : <Sun size={18}/>}
-            <span>{darkMode ? 'Gece Modu' : 'Gündüz Modu'}</span>
-            <span className="themeSwitchTrack" aria-hidden="true">
-              <span className="themeSwitchKnob" />
-            </span>
+            Hesap
           </button>
         </div>
 
-        <div className="card">
-  <h3>Telefon bildirimleri</h3>
-  <p>Son kullanma tarihine 10 gün kalan partiler için bu telefonda bildirim al.</p>
-
-  <button onClick={notify}>
-    Bildirimleri aç
-  </button>
-
-  <button
-    className="secondary"
-    onClick={testNotification}
-    style={{marginLeft:'10px'}}
-  >
-    Test bildirimi gönder
-  </button>
-</div>
-        {profile?.role==='admin' && (
-  <div className="card">
-    <h3>Kullanıcı Yönetimi</h3>
-
-    <form onSubmit={addAllowedUser}>
-      <input
-        type="email"
-        placeholder="E-posta adresi"
-        value={userForm.email}
-        onChange={e=>setUserForm({...userForm,email:e.target.value})}
-        required
-      />
-
-      <select
-        value={userForm.role==='admin' ? 'admin' : userForm.branch}
-        onChange={e=>{
-          const value=e.target.value
-
-          if(value==='admin'){
-            setUserForm({...userForm,role:'admin',branch:''})
-          }else{
-            setUserForm({...userForm,role:'branch',branch:value})
-          }
-        }}
-      >
-        <option value="admin">Yönetici</option>
-        <option value="veteriner">Veteriner Fakültesi</option>
-        <option value="iktisat">İktisat Fakültesi</option>
-        <option value="suna_uzal">Suna UZAL</option>
-        <option value="uso">USO</option>
-      </select>
-
-      <button type="submit">
-        Kullanıcı Ekle
-      </button>
-    </form>
-
-    <h3>Yetkili Kullanıcılar</h3>
-
-    <div className="list">
-      {allowedUsers.map(u=>(
-        <div className="productRow" key={u.email}>
-          <div>
-            <b>{u.email}</b>
-            <small>
-              {u.role==='admin'
-                ? 'Yönetici'
-                : u.branch==='veteriner'
-                  ? 'Veteriner Fakültesi'
-                  : u.branch==='iktisat'
-                    ? 'İktisat Fakültesi'
-                    : u.branch==='suna_uzal'
-                      ? 'Suna UZAL'
-                      : u.branch==='uso'
-                        ? 'USO'
-                        : 'Şube atanmamış'}
-            </small>
-          </div>
-
-          <div>
-           <select
-  value={u.role==='admin' ? 'admin' : (u.branch || '')}
-  onChange={e=>{
-    const value=e.target.value
-
-    if(value==='admin'){
-      updateAllowedUser(u.email,'admin',null)
-    }else{
-      updateAllowedUser(u.email,'branch',value)
-    }
-  }}
->
-  <option value="admin">Yönetici</option>
-  <option value="veteriner">Veteriner Fakültesi</option>
-  <option value="iktisat">İktisat Fakültesi</option>
-  <option value="suna_uzal">Suna UZAL</option>
-  <option value="uso">USO</option>
-</select>
+        {settingsTab==='general' && <>
+          <div className="card themeSetting">
+            <div className="themeSettingText">
+              <h3>Görünüm</h3>
+              <p>{darkMode ? 'Gece modu açık.' : 'Gündüz modu açık.'} Seçimin bu cihazda hatırlanır.</p>
+            </div>
 
             <button
               type="button"
-              className="secondary"
-              onClick={()=>removeAllowedUser(u.email)}
+              className={`themeToggle ${darkMode ? 'on' : ''}`}
+              onClick={()=>setDarkMode(v=>!v)}
+              aria-pressed={darkMode}
+              aria-label={darkMode ? 'Gece modunu kapat' : 'Gece modunu aç'}
             >
-              Erişimi Kaldır
+              {darkMode ? <Moon size={18}/> : <Sun size={18}/>}
+              <span>{darkMode ? 'Gece Modu' : 'Gündüz Modu'}</span>
+              <span className="themeSwitchTrack" aria-hidden="true">
+                <span className="themeSwitchKnob" />
+              </span>
             </button>
           </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-        <div className="card"><h3>Hesap</h3><p>{session.user.email}</p><button className="secondary" onClick={signOut}>Çıkış yap</button></div>
+
+          <div className="card settingsCard">
+            <h3>Bildirimler</h3>
+            <p>SKT yaklaşan ürünler için bu telefonda bildirim alabilir ve test bildirimi gönderebilirsin.</p>
+
+            <div className="settingsActions">
+              <button onClick={notify}>
+                Bildirimleri Aç
+              </button>
+
+              <button
+                className="secondary"
+                onClick={testNotification}
+              >
+                Test Bildirimi Gönder
+              </button>
+            </div>
+          </div>
+        </>}
+
+        {profile?.role==='admin' && settingsTab==='users' && (
+          <div className="card userSettingsCard">
+            <div className="settingsCardHeader">
+              <div>
+                <h3>Kullanıcılar</h3>
+                <p>Uygulamaya girebilecek e-posta adreslerini ve yetkilerini buradan yönet.</p>
+              </div>
+            </div>
+
+            <form onSubmit={addAllowedUser} className="userAddForm">
+              <label>
+                E-posta Adresi
+                <input
+                  type="email"
+                  placeholder="ornek@eposta.com"
+                  value={userForm.email}
+                  onChange={e=>setUserForm({...userForm,email:e.target.value})}
+                  required
+                />
+              </label>
+
+              <label>
+                Yetki / Kantin
+                <select
+                  value={userForm.role==='admin' ? 'admin' : userForm.branch}
+                  onChange={e=>{
+                    const value=e.target.value
+
+                    if(value==='admin'){
+                      setUserForm({...userForm,role:'admin',branch:''})
+                    }else{
+                      setUserForm({...userForm,role:'branch',branch:value})
+                    }
+                  }}
+                >
+                  <option value="admin">Yönetici</option>
+                  <option value="veteriner">Veteriner Fakültesi</option>
+                  <option value="iktisat">İktisat Fakültesi</option>
+                  <option value="suna_uzal">Suna UZAL</option>
+                  <option value="uso">USO</option>
+                </select>
+              </label>
+
+              <button type="submit">
+                E-posta Ekle
+              </button>
+            </form>
+
+            <div className="settingsDivider" />
+
+            <h3>Yetkili E-postalar</h3>
+
+            <div className="list userAccessList">
+              {allowedUsers.map(u=>(
+                <div className="userAccessRow" key={u.email}>
+                  <div className="userAccessInfo">
+                    <b>{u.email}</b>
+                    <small>
+                      {u.role==='admin'
+                        ? 'Yönetici'
+                        : u.branch==='veteriner'
+                          ? 'Veteriner Fakültesi'
+                          : u.branch==='iktisat'
+                            ? 'İktisat Fakültesi'
+                            : u.branch==='suna_uzal'
+                              ? 'Suna UZAL'
+                              : u.branch==='uso'
+                                ? 'USO'
+                                : 'Şube atanmamış'}
+                    </small>
+                  </div>
+
+                  <div className="userAccessActions">
+                    <select
+                      value={u.role==='admin' ? 'admin' : (u.branch || '')}
+                      onChange={e=>{
+                        const value=e.target.value
+
+                        if(value==='admin'){
+                          updateAllowedUser(u.email,'admin',null)
+                        }else{
+                          updateAllowedUser(u.email,'branch',value)
+                        }
+                      }}
+                    >
+                      <option value="admin">Yönetici</option>
+                      <option value="veteriner">Veteriner Fakültesi</option>
+                      <option value="iktisat">İktisat Fakültesi</option>
+                      <option value="suna_uzal">Suna UZAL</option>
+                      <option value="uso">USO</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={()=>removeAllowedUser(u.email)}
+                    >
+                      Erişimi Kaldır
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {!allowedUsers.length && (
+                <Empty text="Henüz yetkili e-posta eklenmedi." />
+              )}
+            </div>
+          </div>
+        )}
+
+        {settingsTab==='account' && (
+          <div className="card settingsCard">
+            <h3>Hesap</h3>
+            <p className="accountEmail">{session.user.email}</p>
+            <button className="secondary" onClick={signOut}>Çıkış Yap</button>
+          </div>
+        )}
       </>}
     </main>
     {profile?.role === 'admin' ? (
