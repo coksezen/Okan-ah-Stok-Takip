@@ -13,7 +13,13 @@ const emptyProduct = {
   min_stock:0,
   box_size:1
 }
-const emptyBatch = { lot_no:'', expiry_date:'', quantity:1 }
+const emptyBatch = {
+  lot_no:'',
+  expiry_date:'',
+  quantity:1,
+  box_count:1,
+  status:'closed'
+}
 const daysLeft = d => Math.ceil((new Date(d+'T23:59:59') - new Date()) / 86400000)
 const fmt = d => d ? new Intl.DateTimeFormat('tr-TR').format(new Date(d+'T12:00:00')) : '-'
 
@@ -135,7 +141,7 @@ async function loadData(){
     {data:pr,error:pre}
   ] = await Promise.all([
     supabase.from('products').select('*').order('name'),
-    supabase.from('batches').select('*,products(name,barcode,unit)').order('expiry_date'),
+    supabase.from('batches').select('*,products(name,barcode,unit,box_size)').order('expiry_date'),
     supabase.from('branch_needs').select('*').order('created_at',{ascending:false}),
     supabase.from('user_profiles').select('*').eq('user_id',session.user.id).single()
   ])
@@ -439,7 +445,26 @@ function flash(t){
   const filtered=products.filter(p=>(p.name+' '+(p.barcode||'')+' '+(p.category||'')).toLowerCase().includes(query.toLowerCase()))
 
   function openNew(barcode=''){ setProductForm({...emptyProduct,barcode}); setBatchForm(emptyBatch); setModal('new') }
-  function openProduct(p){ setProductForm({...p}); setBatchForm(emptyBatch); setModal('product') }
+  function openProduct(p){
+    if(profile?.role==='admin' && !productBranch){
+      const choice=prompt(
+        'Hangi kantin için işlem yapılıyor?\n1 - Veteriner Fakültesi\n2 - İktisat Fakültesi\n3 - Suna UZAL\n4 - USO'
+      )
+      const branchMap={
+        '1':'veteriner',
+        '2':'iktisat',
+        '3':'suna_uzal',
+        '4':'uso'
+      }
+      const branch=branchMap[choice]
+      if(!branch) return flash('Kantin seçilmedi.')
+      setProductBranch(branch)
+    }
+
+    setProductForm({...p})
+    setBatchForm(emptyBatch)
+    setModal('product')
+  }
 async function saveNew(e){
   e.preventDefault()
 
@@ -513,14 +538,37 @@ const stockQty=
   productForm.unit==='kutu'
     ? enteredQty * boxSize
     : enteredQty
-  const {error:be}=await supabase
-    .from('batches')
-    .insert({
+  let be=null
+
+  if(productForm.unit==='kutu'){
+    const rows=Array.from({length:enteredQty},()=>({
       product_id:p.id,
-      ...batchForm,
       branch,
-      quantity:stockQty
-    })
+      expiry_date:batchForm.expiry_date,
+      quantity:boxSize,
+      box_count:1,
+      status:'closed'
+    }))
+
+    const result=await supabase
+      .from('batches')
+      .insert(rows)
+
+    be=result.error
+  }else{
+    const result=await supabase
+      .from('batches')
+      .insert({
+        product_id:p.id,
+        branch,
+        expiry_date:batchForm.expiry_date,
+        quantity:stockQty,
+        box_count:1,
+        status:'closed'
+      })
+
+    be=result.error
+  }
 
   if(be) return flash(be.message)
 
@@ -530,7 +578,7 @@ const stockQty=
 }
   async function updateProduct(e){
     e.preventDefault()
-    const {error}=await supabase.from('products').update({name:productForm.name,barcode:productForm.barcode||null,category:productForm.category,unit:productForm.unit,notes:productForm.notes,min_stock:Number(productForm.min_stock||0)}).eq('id',productForm.id)
+    const {error}=await supabase.from('products').update({name:productForm.name,barcode:productForm.barcode||null,category:productForm.category,unit:productForm.unit,notes:productForm.notes,min_stock:Number(productForm.min_stock||0),box_size:Number(productForm.box_size||1)}).eq('id',productForm.id)
     if(error)return flash(error.message)
     setModal(null);await loadData();flash('Ürün güncellendi.')
   }
@@ -548,14 +596,45 @@ const stockQty=
   if(!branch)
     return flash('Şube belirlenemedi.')
 
-  const {error}=await supabase
-    .from('batches')
-    .insert({
+  const isBox=Number(productForm.box_size)>1
+  let error=null
+
+  if(isBox){
+    const boxCount=Math.max(1,Number(batchForm.box_count || 1))
+    const rows=Array.from({length:boxCount},()=>({
       product_id:productForm.id,
-      ...batchForm,
       branch,
-      quantity:Number(batchForm.quantity)
-    })
+      expiry_date:batchForm.expiry_date,
+      quantity:Number(productForm.box_size || 1),
+      box_count:1,
+      status:'closed'
+    }))
+
+    const result=await supabase
+      .from('batches')
+      .insert(rows)
+
+    error=result.error
+
+    if(!error){
+      setBatchForm(emptyBatch)
+      await loadData()
+      return flash(`${boxCount} kutu eklendi.`)
+    }
+  }else{
+    const result=await supabase
+      .from('batches')
+      .insert({
+        product_id:productForm.id,
+        branch,
+        expiry_date:batchForm.expiry_date,
+        quantity:Number(batchForm.quantity),
+        box_count:1,
+        status:'closed'
+      })
+
+    error=result.error
+  }
 
   if(error) return flash(error.message)
 
@@ -569,8 +648,40 @@ const stockQty=
     if(error) return flash(error.message)
     if(next===0) flash('Parti stoğu 0 oldu.'); await loadData()
   }
+  async function openBatch(batch){
+    const earlier=batches
+      .filter(b=>
+        b.id!==batch.id &&
+        b.product_id===batch.product_id &&
+        b.branch===batch.branch &&
+        b.status==='closed' &&
+        b.expiry_date<batch.expiry_date
+      )
+      .sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
+
+    if(earlier.length){
+      const ok=confirm(
+        `Daha erken SKT'li kapalı kutu var (${fmt(earlier[0].expiry_date)}). Yine de bu kutuyu açmak istiyor musun?`
+      )
+      if(!ok) return
+    }
+
+    const {error}=await supabase
+      .from('batches')
+      .update({
+        status:'open',
+        opened_at:new Date().toISOString()
+      })
+      .eq('id',batch.id)
+
+    if(error) return flash(error.message)
+
+    await loadData()
+    flash('Kutu açık olarak işaretlendi.')
+  }
+
   async function deleteBatch(id){
-    if(!confirm('Bu partiyi silmek istiyor musun?'))return
+    if(!confirm('Bu kutu / parti bitti mi? Kayıt listeden kaldırılacak.'))return
     const {error}=await supabase.from('batches').delete().eq('id',id); if(error)return flash(error.message)
     await loadData();flash('Parti silindi.')
   }
@@ -642,12 +753,7 @@ const stockQty=
 
   if(mode==='new'){
     if(p){
-      setProductForm({
-        ...p,
-        unit:Number(p.box_size)>1 ? 'kutu' : 'adet'
-      })
-      setBatchForm(emptyBatch)
-      setModal('new')
+      openProduct(p)
     }else{
       openNew(code)
     }
@@ -1400,7 +1506,7 @@ acc[key].branchRows[n.branch].push(n)
       <ProductDetail product={productForm} setProduct={setProductForm} batches={batches.filter(b=>
   b.product_id===productForm.id &&
   b.branch===(profile?.role==='branch' ? profile.branch : productBranch)
-)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
+)} batch={batchForm} setBatch={setBatchForm} update={updateProduct} addBatch={addBatch} changeQty={changeQty} openBatch={openBatch} deleteBatch={deleteBatch} deleteProduct={deleteProduct}/>} 
     </Modal>}
   </div>
 }
@@ -1649,80 +1755,99 @@ function ProductDetail({
   setBatch,
   update,
   addBatch,
-  changeQty,
+  openBatch,
   deleteBatch,
   deleteProduct
 }){
+  const isBox=Number(product.box_size)>1
+  const sortedBatches=[...batches].sort((a,b)=>a.expiry_date.localeCompare(b.expiry_date))
+
   return (
     <div>
-      <ProductForm
-        title="Ürün bilgileri"
-        form={product}
-        setForm={setProduct}
-        batch={batch}
-        setBatch={setBatch}
-        submit={update}
-      />
+      <h2>{product.name}</h2>
+      <p style={{marginTop:'-6px',color:'#64748b'}}>
+        {product.barcode || 'Barkod yok'}
+      </p>
 
-      <hr/>
-
-      <h3>SKT / Stoklar</h3>
+      <h3>SKT / Partiler</h3>
 
       <div className="list compact">
-        {batches.map(b=>(
+        {sortedBatches.map(b=>(
           <div className="manageBatch" key={b.id}>
             <div>
               <b>{fmt(b.expiry_date)}</b>
+              <small>
+                {isBox ? '1 kutu' : `${b.quantity} adet`}
+                {' · '}
+                {b.status==='open' ? '🟢 AÇIK' : '🔒 KAPALI'}
+              </small>
             </div>
 
             <div className="qty">
-              <button
-                className="secondary"
-                onClick={()=>changeQty(b,-1)}
-              >
-                <Minus size={16}/>
-              </button>
+              {isBox && b.status!=='open' && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={()=>openBatch(b)}
+                >
+                  Kutuyu Aç
+                </button>
+              )}
 
-              <strong>{b.quantity}</strong>
+              {isBox && b.status==='open' && (
+                <button type="button" className="secondary" disabled>
+                  ✓ Açık
+                </button>
+              )}
 
               <button
-                className="secondary"
-                onClick={()=>changeQty(b,1)}
-              >
-                <Plus size={16}/>
-              </button>
-
-              <button
+                type="button"
                 className="dangerBtn"
                 onClick={()=>deleteBatch(b.id)}
               >
-                <Trash2 size={16}/>
+                Bitti
               </button>
             </div>
           </div>
         ))}
 
-        {!batches.length &&
-          <Empty text="Bu üründe SKT kaydı yok."/>
+        {!sortedBatches.length &&
+          <Empty text="Bu üründe aktif parti yok."/>
         }
       </div>
 
       <form onSubmit={addBatch} className="addBatch">
-        <h3>Yeni SKT Ekle</h3>
+        <h3>+ Yeni Parti Ekle</h3>
 
-        <label>
-          Adet
-          <input
-            type="number"
-            min="1"
-            required
-            value={batch.quantity}
-            onChange={e=>setBatch({
-              ...batch,
-              quantity:e.target.value
-            })}
-          />
-        </label>
+        {isBox ? (
+          <label>
+            Kaç Kutu Geldi?
+            <input
+              type="number"
+              min="1"
+              required
+              value={batch.box_count || 1}
+              onChange={e=>setBatch({
+                ...batch,
+                box_count:e.target.value
+              })}
+            />
+          </label>
+        ) : (
+          <label>
+            Adet
+            <input
+              type="number"
+              min="1"
+              required
+              value={batch.quantity}
+              onChange={e=>setBatch({
+                ...batch,
+                quantity:e.target.value
+              })}
+            />
+          </label>
+        )}
 
         <label>
           Son Kullanma Tarihi
@@ -1737,8 +1862,55 @@ function ProductDetail({
           />
         </label>
 
-        <button>SKT Ekle</button>
+        <button>Partiyi Ekle</button>
       </form>
+
+      <details style={{marginTop:'18px'}}>
+        <summary style={{cursor:'pointer',fontWeight:700}}>
+          Ürün bilgilerini düzenle
+        </summary>
+
+        <form onSubmit={update} style={{marginTop:'12px'}}>
+          <label>
+            Ürün Adı
+            <input
+              value={product.name || ''}
+              onChange={e=>setProduct({...product,name:e.target.value})}
+              required
+            />
+          </label>
+
+          <label>
+            Barkod
+            <input
+              value={product.barcode || ''}
+              onChange={e=>setProduct({...product,barcode:e.target.value})}
+            />
+          </label>
+
+          <label>
+            Not
+            <input
+              value={product.notes || ''}
+              onChange={e=>setProduct({...product,notes:e.target.value})}
+            />
+          </label>
+
+          {isBox && (
+            <label>
+              1 Kutuda Kaç Adet?
+              <input
+                type="number"
+                min="1"
+                value={product.box_size || 1}
+                onChange={e=>setProduct({...product,box_size:Number(e.target.value)})}
+              />
+            </label>
+          )}
+
+          <button>Ürün Bilgilerini Kaydet</button>
+        </form>
+      </details>
 
       <button
         className="deleteProduct"
