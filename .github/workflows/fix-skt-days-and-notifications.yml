@@ -1,0 +1,35 @@
+name: One-time SKT days and notifications patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply SKT patch
+        run: python .github/scripts/fix-skt-days-and-notifications.py
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify build
+        run: npm run build
+
+      - name: Commit changes and cleanup
+        run: |
+          rm -f .github/scripts/fix-skt-days-and-notifications.py
+          rm -f .github/workflows/fix-skt-days-and-notifications.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix SKT day count and prepare 11am notifications"
+          git push
