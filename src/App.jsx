@@ -73,7 +73,7 @@ const swipeStartY=useRef(null)
 
     const themeMeta=document.querySelector('meta[name="theme-color"]')
     if(themeMeta){
-      themeMeta.setAttribute('content',darkMode ? '#080d18' : '#ffffff')
+      themeMeta.setAttribute('content',darkMode ? '#080d18' : '#f8fafc')
     }
   },[darkMode])
 
@@ -1133,7 +1133,7 @@ if(showSplash) return (
       flexDirection:'column',
       alignItems:'center',
       justifyContent:'center',
-      background:darkMode ? '#080d18' : '#ffffff',
+      background:darkMode ? '#080d18' : '#f8fafc',
 color:darkMode ? '#f8fafc' : '#0f172a',
       textAlign:'center',
       padding:'24px',

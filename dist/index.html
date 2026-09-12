@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#f8fafc" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -12,12 +12,24 @@
 
   <title>StokCep</title>
 
+  <script>
+    (()=>{
+      const saved=localStorage.getItem('okan-sah-theme')
+      const dark=saved ? saved==='dark' : (window.matchMedia?.('(prefers-color-scheme: dark)').matches || false)
+      document.documentElement.classList.toggle('startup-dark',dark)
+      const meta=document.querySelector('meta[name="theme-color"]')
+      if(meta) meta.setAttribute('content',dark ? '#080d18' : '#f8fafc')
+    })()
+  </script>
+
   <style>
     html,
-    body {
+    body,
+    #root {
       margin: 0;
       padding: 0;
-      background: #ffffff;
+      background: #f8fafc;
+      min-height: 100%;
     }
     #startup {
       position: fixed;
@@ -28,8 +40,20 @@
       align-items: center;
       justify-content: center;
       font-family: Arial, sans-serif;
-      background: #0f172a;
+      background: #f8fafc;
       color: #0f172a;
+    }
+
+
+    html.startup-dark,
+    html.startup-dark body,
+    html.startup-dark #root,
+    html.startup-dark #startup {
+      background: #080d18;
+    }
+
+    html.startup-dark #startup {
+      color: #f8fafc;
     }
 
     #startup-inner {
@@ -55,7 +79,7 @@
       opacity: 0.65;
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-bC9EfUM5.js"></script>
+  <script type="module" crossorigin src="/assets/index-C0YSrMtn.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DhxTLRlv.css">
 </head>
 
