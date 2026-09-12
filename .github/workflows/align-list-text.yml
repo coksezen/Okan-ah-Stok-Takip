@@ -1,0 +1,89 @@
+name: One-time list card alignment polish
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Align card texts to the left
+        run: |
+          cat >> src/styles.css <<'EOF'
+
+          /* Sol hizalı ürün ve seçim kartları */
+          button.productRow{
+            justify-content:flex-start;
+            text-align:left;
+          }
+
+          button.productRow > div:only-child{
+            width:100%;
+            display:flex !important;
+            flex-direction:column;
+            align-items:flex-start;
+            justify-content:center;
+            gap:3px;
+            text-align:left;
+          }
+
+          button.productRow > div:only-child b,
+          button.productRow > div:only-child small{
+            display:block;
+            width:100%;
+            text-align:left;
+          }
+
+          button.productRow > div:only-child b{
+            margin:0;
+            line-height:1.25;
+          }
+
+          button.productRow > div:only-child small{
+            margin:2px 0 0;
+            font-weight:500;
+            line-height:1.35;
+          }
+
+          .productRow > div:first-child{
+            text-align:left;
+          }
+
+          .productRow > div:first-child b,
+          .productRow > div:first-child small{
+            text-align:left;
+          }
+
+          @media(max-width:520px){
+            button.productRow{
+              min-height:78px;
+              padding:15px 16px;
+              align-items:center;
+            }
+
+            button.productRow > div:only-child b{
+              font-size:16px;
+            }
+
+            button.productRow > div:only-child small{
+              font-size:13px;
+            }
+          }
+          EOF
+
+      - name: Commit and cleanup
+        run: |
+          rm -f .github/workflows/align-list-text.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Align product and selection card text to the left"
+          git push
