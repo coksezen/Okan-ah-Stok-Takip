@@ -19,7 +19,7 @@ jobs:
         run: python .github/scripts/hotfix_practical_features.py
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Verify build
         run: npm run build
