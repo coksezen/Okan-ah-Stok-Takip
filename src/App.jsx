@@ -234,7 +234,7 @@ async function loadData(){
 
   if(pr?.role==='branch' && pr?.branch){
     setSelectedBranch(pr.branch)
-    setTab('needs')
+    setTab(current=>current==='home' ? 'needs' : current)
   }
 }
 function addOfflineAction(type,payload){
@@ -603,7 +603,23 @@ function flash(t){
     })
     .slice(0,6)
 
-  function openNew(barcode=''){ setProductForm({...emptyProduct,barcode}); setBatchForm(emptyBatch); setModal('new') }
+  function openNew(barcode=''){
+    setQuickScanAfterSave(false)
+
+    if(profile?.role==='admin' && !productBranch){
+      const choice=prompt(
+        'Hangi kantin için işlem yapılıyor?\n1 - Veteriner Fakültesi\n2 - İktisat Fakültesi\n3 - Suna UZAL\n4 - USO'
+      )
+      const branchMap={'1':'veteriner','2':'iktisat','3':'suna_uzal','4':'uso'}
+      const branch=branchMap[choice]
+      if(!branch) return flash('Kantin seçilmedi.')
+      setProductBranch(branch)
+    }
+
+    setProductForm({...emptyProduct,barcode})
+    setBatchForm(emptyBatch)
+    setModal('new')
+  }
   function openProduct(p,quick=false){
     setQuickScanAfterSave(Boolean(quick))
     if(profile?.role==='admin' && !productBranch){
@@ -2142,7 +2158,7 @@ function ProductDetail({
     : null
 
   return (
-    <div>
+    <div className={`productDetailRoot ${quickMode ? 'quick' : ''}`}>
       <div className="productDetailHeader">
         <div>
           <h2>{product.name}</h2>

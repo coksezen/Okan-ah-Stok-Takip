@@ -560,3 +560,13 @@ html.dark .offlineBanner span{color:#fed7aa}
   .batchGroupActions button{width:100%}
   .productDetailHeader{padding-right:38px}
 }
+
+
+/* Quick intake puts the two required fields first */
+.productDetailRoot.quick{display:flex;flex-direction:column}
+.productDetailRoot.quick .productDetailHeader{order:0}
+.productDetailRoot.quick .quickBatchForm{order:1;margin:10px 0 18px}
+.productDetailRoot.quick>h3{order:2}
+.productDetailRoot.quick .batchGroups{order:3}
+.productDetailRoot.quick details{order:4}
+.productDetailRoot.quick .deleteProduct{order:5}
