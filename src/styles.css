@@ -91,3 +91,125 @@
   font-weight:500;
   color:#64748b;
 }
+
+/* Ortak kart düzeni: uygulamanın her yerinde aynı hizalama */
+.batchRow,
+.productRow,
+.manageBatch{
+  gap:14px;
+  min-height:74px;
+  padding:15px 16px;
+  align-items:center;
+}
+
+.batchRow > div:first-child,
+.productRow > div:first-child,
+.manageBatch > div:first-child{
+  flex:1 1 auto;
+  min-width:0;
+}
+
+.batchRow b,
+.productRow b,
+.manageBatch b{
+  display:block;
+  margin:0;
+  font-size:16px;
+  line-height:1.25;
+  font-weight:800;
+  letter-spacing:-.15px;
+  color:#0f172a;
+}
+
+.batchRow small,
+.productRow small,
+.manageBatch small{
+  margin-top:4px;
+  font-size:14px;
+  line-height:1.35;
+  color:#64748b;
+}
+
+/* Kartın sağındaki işlem alanı */
+.productRow > div:last-child:not(:first-child),
+.manageBatch > div:last-child:not(:first-child){
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.productRow > div:last-child:not(:first-child) button,
+.manageBatch > div:last-child:not(:first-child) button,
+.qty button{
+  min-height:42px;
+  padding:10px 14px;
+  border-radius:12px;
+  font-size:14px;
+  line-height:1;
+  font-weight:750;
+  white-space:nowrap;
+  word-break:normal;
+}
+
+/* Ana işlem butonları hiçbir zaman iki satıra bölünmesin */
+.productRow button:not(.secondary):not(.dangerBtn),
+.manageBatch button:not(.secondary):not(.dangerBtn){
+  white-space:nowrap;
+}
+
+/* Kart içindeki bilgi satırlarının ritmi */
+.productRow > div:first-child > div,
+.manageBatch > div:first-child > div{
+  line-height:1.35;
+}
+
+@media (max-width:520px){
+  .batchRow,
+  .productRow,
+  .manageBatch{
+    gap:12px;
+    padding:14px;
+    align-items:center;
+  }
+
+  .productRow > div:last-child:not(:first-child),
+  .manageBatch > div:last-child:not(:first-child){
+    flex:0 0 142px;
+    width:142px;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:center;
+    gap:7px;
+  }
+
+  .productRow > div:last-child:not(:first-child) button,
+  .manageBatch > div:last-child:not(:first-child) button{
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    padding:10px 10px;
+    font-size:13px;
+    white-space:nowrap;
+  }
+
+  .productRow b,
+  .manageBatch b,
+  .batchRow b{
+    font-size:16px;
+    overflow-wrap:break-word;
+    word-break:normal;
+  }
+
+  .productRow small,
+  .manageBatch small,
+  .batchRow small{
+    font-size:13px;
+  }
+
+  /* Sağ tarafta işlem butonu olmayan seçim kartları daha ferah kalsın */
+  button.productRow > div:only-child{
+    width:100%;
+  }
+}
