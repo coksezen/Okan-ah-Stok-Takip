@@ -1108,12 +1108,18 @@ acc[key].branchRows[n.branch].push(n)
   )
 )
 
+const branchNeedCounts=Object.keys(branchLabels).reduce((acc,branch)=>{
+  acc[branch]=needs.filter(n=>n.branch===branch && !n.completed).length
+  return acc
+},{})
+const totalPendingNeeds=Object.values(branchNeedCounts).reduce((sum,count)=>sum+count,0)
+const branchesWithNeeds=Object.values(branchNeedCounts).filter(count=>count>0).length
+
 const dashboard={
   urgent3:batches.filter(b=>daysLeft(b.expiry_date)>=0 && daysLeft(b.expiry_date)<=3).length,
   near10:batches.filter(b=>daysLeft(b.expiry_date)>=0 && daysLeft(b.expiry_date)<=10).length,
-  openBoxes:batches.filter(b=>b.status==='open').length,
-  depotPending:groupedNeeds.filter(g=>!g.allPickedUp).length,
-  deliveryPending:needs.filter(n=>n.picked_up && !n.delivered).length
+  expired:batches.filter(b=>daysLeft(b.expiry_date)<0).length,
+  openBoxes:batches.filter(b=>b.status==='open').length
 }
   return <div className="app">
     <header><div className="topBrand">
@@ -1124,8 +1130,8 @@ const dashboard={
     <small>Kantin & Stok Yönetimi</small>
   </div>
 </div> <button className="icon" onClick={signOut}> <LogOut size={20}/></button></header>
-   {expiryWarnings.length>0 && (
-  <div className="card">
+   {tab==='home' && expiryWarnings.length>0 && (
+  <div className="card homeAlertCard">
     <h3>⚠️ SKT Uyarıları</h3>
 
     <div className="list">
@@ -1176,9 +1182,8 @@ const dashboard={
         <div className="stats quickStats">
           <Stat n={dashboard.urgent3} t="3 gün içinde" danger/>
           <Stat n={dashboard.near10} t="10 gün içinde" warn/>
+          <Stat n={dashboard.expired} t="Süresi geçen" danger/>
           <Stat n={dashboard.openBoxes} t="Açık kutu"/>
-          <Stat n={dashboard.depotPending} t="Depodan alınacak"/>
-          <Stat n={dashboard.deliveryPending} t="Teslim bekleyen"/>
         </div>
 
         {recentProductRows.length>0 && <>
@@ -1196,105 +1201,90 @@ const dashboard={
         <div className="sectionTitle"><h2>Yaklaşan tarihler</h2><button className="link" onClick={()=>setTab('expiry')}>Tümünü gör</button></div>
         <div className="list">{expiryList.slice(0,5).map(b=><BatchRow key={b.id} b={b}/>)}{!expiryList.length&&<Empty text="Henüz parti kaydı yok."/>}</div>
       </>}
-      {profile?.role==='admin' && tab==='home' && (
-  <div className="card">
-    <h3>Depodan Alınacaklar</h3>
-
-    {!groupedNeeds.length ? (
-      <p>Şu an ortak ihtiyaç yok.</p>
-    ) : (
-      <div className="list">
-        {groupedNeeds.map(g=>(
-         <div className="productRow" key={g.key}>
-  <div>
-    <b>{g.item_name}</b>
-
-    <small>
-      Toplam: {g.total} {g.unit}
-    </small>
-
-  {Object.entries(g.branches).map(([branch,qty])=>{
-  const rows=g.branchRows[branch] || []
-  const allDelivered=rows.length>0 && rows.every(r=>r.delivered)
-
-  return (
-    <div key={branch}>
-      <small>
-        {branchLabels[branch] || branch}: {qty} {g.unit}
-      </small>
-
-      {g.allPickedUp && (
-        allDelivered ? (
-          <button type="button" className="secondary" disabled>
-            ✓ Teslim Edildi
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={()=>markNeedDelivered(rows.map(r=>r.id))}
-          >
-            Teslim Ettim
-          </button>
-        )
-      )}
-    </div>
-  )
-})}
-  </div>
-
-  {g.allPickedUp ? (
-    <button type="button" className="secondary" disabled>
-      ✓ Depodan Alındı
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={()=>markGroupPickedUp(g.ids)}
-    >
-      Depodan Aldım
-    </button>
-  )}
-</div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
       {tab==='needs' && <>
  {profile?.role==='admin' && !selectedBranch ? <>
     <div className="sectionTitle">
       <h1>İhtiyaçlar</h1>
     </div>
 
-    <div className="list">
-      <button className="productRow" onClick={()=>setSelectedBranch('veteriner')}>
-        <div>
-          <b>Veteriner Fakültesi</b>
-          <small>Eksik listesini görüntüle</small>
-        </div>
-      </button>
-
-      <button className="productRow" onClick={()=>setSelectedBranch('iktisat')}>
-        <div>
-          <b>İktisat Fakültesi</b>
-          <small>Eksik listesini görüntüle</small>
-        </div>
-      </button>
-
-      <button className="productRow" onClick={()=>setSelectedBranch('suna_uzal')}>
-        <div>
-          <b>Suna UZAL</b>
-          <small>Eksik listesini görüntüle</small>
-        </div>
-      </button>
-
-      <button className="productRow" onClick={()=>setSelectedBranch('uso')}>
-        <div>
-          <b>USO</b>
-          <small>Eksik listesini görüntüle</small>
-        </div>
-      </button>
+    <div className={`needsOverview ${totalPendingNeeds ? 'hasNeeds' : ''}`}>
+      <div>
+        <b>{totalPendingNeeds ? `${branchesWithNeeds} kantinde ihtiyaç var` : 'Şu an bekleyen ihtiyaç yok'}</b>
+        <small>
+          {totalPendingNeeds
+            ? `Toplam ${totalPendingNeeds} kalem bekliyor.`
+            : 'Yeni ihtiyaç geldiğinde burada bildirim olarak görünecek.'}
+        </small>
+      </div>
+      {totalPendingNeeds>0 && <span className="needsOverviewCount">{totalPendingNeeds}</span>}
     </div>
+
+    <div className="list branchNeedList">
+      {Object.entries(branchLabels).map(([branch,label])=>{
+        const count=branchNeedCounts[branch] || 0
+        return (
+          <button
+            key={branch}
+            className={`productRow needBranchRow ${count ? 'hasNeeds' : ''}`}
+            onClick={()=>setSelectedBranch(branch)}
+          >
+            <div>
+              <b>{label}</b>
+              <small>{count ? `${count} bekleyen ihtiyaç` : 'Şu an ihtiyaç yok'}</small>
+            </div>
+            <span className={`needStatusBadge ${count ? 'active' : ''}`}>
+              {count ? 'İhtiyaç var' : 'Boş'}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+
+    {groupedNeeds.length>0 && (
+      <details className="depotDetails">
+        <summary>
+          <span>Depo Toplama Listesi</span>
+          <small>{groupedNeeds.length} ürün</small>
+        </summary>
+
+        <div className="list depotNeedList">
+          {groupedNeeds.map(g=>(
+            <div className="productRow" key={g.key}>
+              <div>
+                <b>{g.item_name}</b>
+                <small>Toplam: {g.total} {g.unit}</small>
+
+                {Object.entries(g.branches).map(([branch,qty])=>{
+                  const rows=g.branchRows[branch] || []
+                  const allDelivered=rows.length>0 && rows.every(r=>r.delivered)
+
+                  return (
+                    <div className="depotBranchLine" key={branch}>
+                      <small>{branchLabels[branch] || branch}: {qty} {g.unit}</small>
+                      {g.allPickedUp && (
+                        allDelivered ? (
+                          <span className="miniDone">✓ Teslim edildi</span>
+                        ) : (
+                          <button type="button" className="secondary miniAction" onClick={()=>markNeedDelivered(rows.map(r=>r.id))}>
+                            Teslim Ettim
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {g.allPickedUp ? (
+                <button type="button" className="secondary" disabled>✓ Depodan Alındı</button>
+              ) : (
+                <button type="button" onClick={()=>markGroupPickedUp(g.ids)}>Depodan Aldım</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
+    )}
   </> : <>
     <div className="sectionTitle">
       <h1>
@@ -1839,6 +1829,9 @@ const dashboard={
         onClick={()=>setTab(id)}
       >
         <Icon size={22}/>
+        {id==='needs' && totalPendingNeeds>0 && (
+          <span className="navNeedBadge">{totalPendingNeeds>9 ? '9+' : totalPendingNeeds}</span>
+        )}
         <span>{label}</span>
       </button>
     )}

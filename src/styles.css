@@ -629,3 +629,127 @@ button.productRow > div:only-child small{
     font-size:13px;
   }
 }
+
+
+/* Home + needs dashboard cleanup */
+.homeAlertCard{
+  max-width:780px;
+  margin:12px auto 0;
+}
+.needsOverview{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:15px 16px;
+  margin:0 0 14px;
+  border:1px solid #e2e8f0;
+  border-radius:16px;
+  background:#fff;
+}
+.needsOverview.hasNeeds{
+  border-color:#bfdbfe;
+  background:#eff6ff;
+}
+.needsOverview b{display:block;font-size:16px}
+.needsOverview small{display:block;margin-top:4px;color:#64748b}
+.needsOverviewCount{
+  flex:0 0 auto;
+  min-width:36px;
+  height:36px;
+  padding:0 10px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  background:#2563eb;
+  color:#fff;
+  font-weight:900;
+}
+.needBranchRow{
+  text-align:left !important;
+  align-items:center !important;
+}
+.needBranchRow.hasNeeds{
+  border-color:#334155;
+  box-shadow:0 0 0 1px #33415522 inset;
+}
+.needStatusBadge{
+  flex:0 0 auto;
+  padding:7px 10px;
+  border-radius:999px;
+  background:#f1f5f9;
+  color:#94a3b8;
+  font-size:12px;
+  font-weight:850;
+  white-space:nowrap;
+}
+.needStatusBadge.active{
+  background:#dbeafe;
+  color:#1d4ed8;
+}
+.depotDetails{
+  margin-top:18px;
+  border:1px solid #e2e8f0;
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+}
+.depotDetails>summary{
+  cursor:pointer;
+  list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:15px 16px;
+  font-weight:850;
+}
+.depotDetails>summary::-webkit-details-marker{display:none}
+.depotDetails>summary small{color:#64748b;font-weight:700}
+.depotNeedList{padding:0 12px 12px}
+.depotBranchLine{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}
+.miniAction{padding:5px 8px !important;min-height:0 !important;font-size:11px !important}
+.miniDone{font-size:11px;font-weight:800;color:#16a34a}
+nav button{position:relative}
+.navNeedBadge{
+  position:absolute;
+  top:1px;
+  left:calc(50% + 7px);
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:#ef4444;
+  color:#fff !important;
+  font-size:10px !important;
+  line-height:1;
+  font-weight:900;
+  border:2px solid #fff;
+}
+html.dark .needsOverview,
+html.dark .depotDetails{
+  background:#111827;
+  border-color:#263244;
+}
+html.dark .needsOverview.hasNeeds{
+  background:#101a2e;
+  border-color:#1d4ed8;
+}
+html.dark .needsOverview small,
+html.dark .depotDetails>summary small{color:#94a3b8}
+html.dark .needStatusBadge{background:#172033;color:#64748b}
+html.dark .needStatusBadge.active{background:#172554;color:#93c5fd}
+html.dark .needBranchRow.hasNeeds{border-color:#3b82f6}
+html.dark .miniDone{color:#86efac}
+html.dark .navNeedBadge{border-color:#080d18}
+@media(max-width:820px){
+  .homeAlertCard{margin:12px 18px 0}
+}
+@media(max-width:520px){
+  .needBranchRow{min-height:82px}
+  .needStatusBadge{font-size:11px;padding:6px 8px}
+  .depotNeedList .productRow{align-items:stretch;flex-direction:column}
+  .depotNeedList .productRow>button{width:100%}
+}
