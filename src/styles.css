@@ -570,3 +570,62 @@ html.dark .offlineBanner span{color:#fed7aa}
 .productDetailRoot.quick .batchGroups{order:3}
 .productDetailRoot.quick details{order:4}
 .productDetailRoot.quick .deleteProduct{order:5}
+
+/* Sol hizalı ürün ve seçim kartları */
+button.productRow{
+  justify-content:flex-start;
+  text-align:left;
+}
+
+button.productRow > div:only-child{
+  width:100%;
+  display:flex !important;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:3px;
+  text-align:left;
+}
+
+button.productRow > div:only-child b,
+button.productRow > div:only-child small{
+  display:block;
+  width:100%;
+  text-align:left;
+}
+
+button.productRow > div:only-child b{
+  margin:0;
+  line-height:1.25;
+}
+
+button.productRow > div:only-child small{
+  margin:2px 0 0;
+  font-weight:500;
+  line-height:1.35;
+}
+
+.productRow > div:first-child{
+  text-align:left;
+}
+
+.productRow > div:first-child b,
+.productRow > div:first-child small{
+  text-align:left;
+}
+
+@media(max-width:520px){
+  button.productRow{
+    min-height:78px;
+    padding:15px 16px;
+    align-items:center;
+  }
+
+  button.productRow > div:only-child b{
+    font-size:16px;
+  }
+
+  button.productRow > div:only-child small{
+    font-size:13px;
+  }
+}
