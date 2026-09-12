@@ -1,0 +1,32 @@
+name: One-time settings tabs patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/settings-tabs.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply settings tabs patch
+        run: python .github/scripts/settings_tabs_patch.py
+
+      - name: Commit app changes and cleanup
+        shell: bash
+        run: |
+          rm .github/workflows/settings-tabs.yml
+          rm .github/scripts/settings_tabs_patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx src/styles.css .github/workflows/settings-tabs.yml .github/scripts/settings_tabs_patch.py
+          git commit -m "Organize settings into tabs"
+          git push
